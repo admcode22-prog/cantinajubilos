@@ -1,0 +1,46 @@
+# VS Code
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Arquivos do sistema
+AppData/
+.wdm/
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# Pastas do Windows
+Desktop/
+Downloads/
+Documents/
+Pictures/
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.cache
+*.pid
+*.seed
+*.pid.lock
+
+# Pastas de dependências
+**/node_modules/
+**/package-lock.json
+
+# Configurações locais
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
