@@ -10,9 +10,14 @@ const App = {
         this.atualizarHeader();
         this.gerarCalendario();
         
-        document.getElementById('vendaQtd').addEventListener('input', () => this.calcularTotalVenda());
-        document.getElementById('vendaValorUnit').addEventListener('input', () => this.calcularTotalVenda());
-        document.getElementById('vendaValorPago').addEventListener('input', () => this.calcularPendenteVenda());
+        // Event listeners para cálculos automáticos
+        const vendaQtd = document.getElementById('vendaQtd');
+        const vendaValorUnit = document.getElementById('vendaValorUnit');
+        const vendaValorPago = document.getElementById('vendaValorPago');
+        
+        if (vendaQtd) vendaQtd.addEventListener('input', () => this.calcularTotalVenda());
+        if (vendaValorUnit) vendaValorUnit.addEventListener('input', () => this.calcularTotalVenda());
+        if (vendaValorPago) vendaValorPago.addEventListener('input', () => this.calcularPendenteVenda());
         
         if (Object.keys(this.events).length === 0) {
             this.criarDadosExemplo();
@@ -22,7 +27,9 @@ const App = {
     atualizarHeader() {
         const hoje = new Date();
         document.getElementById('headerDate').innerHTML = hoje.toLocaleDateString('pt-BR', {
-            day: '2-digit', month: '2-digit', year: 'numeric'
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric'
         });
     },
 
@@ -76,12 +83,13 @@ const App = {
         this.gerarCalendario();
     },
 
+    // ========== ABRIR DIA ==========
     abrirDia(dataKey) {
         this.selectedDay = dataKey;
         
         if (!this.events[dataKey]) {
             this.events[dataKey] = {
-                eventName: 'Cantina',
+                eventName: '',
                 responsible: '',
                 notes: '',
                 ingredientes: [],
@@ -96,16 +104,23 @@ const App = {
         
         document.getElementById('calendarSection').classList.add('hidden');
         document.getElementById('managementSection').classList.remove('hidden');
-        this.mudarAba('vendas');
+        this.mudarAba('evento');
     },
 
+    // ========== CARREGAR DADOS DO EVENTO ==========
     carregarDadosEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
         const evento = this.events[this.selectedDay];
         
-        document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Cantina';
-        document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Sem responsável'}`;
+        // Atualiza o card do evento
+        document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Novo Evento';
+        document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Clique para editar'}`;
+        
+        // Carrega os campos da aba evento
+        document.getElementById('eventName').value = evento.eventName || '';
+        document.getElementById('responsible').value = evento.responsible || '';
+        document.getElementById('notes').value = evento.notes || '';
         
         this.atualizarListaIngredientes();
         this.atualizarListaVendas();
@@ -131,21 +146,56 @@ const App = {
         document.getElementById('resumoEventoAReceber').innerHTML = `R$ ${aReceber.toFixed(2)}`;
     },
 
+    // ========== MUDAR ABA ==========
     mudarAba(aba) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(content => content.classList.remove('active'));
         
-        if (aba === 'custos') {
+        if (aba === 'evento') {
             document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+            document.getElementById('tabEvento').classList.add('active');
+        } else if (aba === 'custos') {
+            document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
             document.getElementById('tabCustos').classList.add('active');
         } else if (aba === 'vendas') {
-            document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+            document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
             document.getElementById('tabVendas').classList.add('active');
         } else if (aba === 'relatorio') {
-            document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
+            document.querySelector('.tab-btn:nth-child(4)').classList.add('active');
             document.getElementById('tabRelatorio').classList.add('active');
             this.atualizarRelatorioEvento();
         }
+    },
+
+    // ========== EVENTO ==========
+    salvarEvento() {
+        if (!this.selectedDay) return;
+
+        const eventName = document.getElementById('eventName').value;
+        const responsible = document.getElementById('responsible').value;
+        const notes = document.getElementById('notes').value;
+
+        if (!this.events[this.selectedDay]) {
+            this.events[this.selectedDay] = {};
+        }
+
+        this.events[this.selectedDay].eventName = eventName;
+        this.events[this.selectedDay].responsible = responsible;
+        this.events[this.selectedDay].notes = notes;
+
+        // Atualiza o card do evento
+        document.getElementById('selectedEventName').innerHTML = eventName || 'Novo Evento';
+        document.getElementById('selectedResponsible').innerHTML = `👤 ${responsible || 'Clique para editar'}`;
+
+        this.salvarDados();
+
+        // Feedback visual
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>✅</span> Salvo!';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+        }, 1500);
     },
 
     // ========== CUSTOS ==========
@@ -175,13 +225,18 @@ const App = {
         const valorTotal = parseFloat(document.getElementById('ingredienteValor').value) || 0;
         const doacao = document.getElementById('ingredienteDoacao').checked;
 
-        if (!nome || quantidade <= 0) {
-            alert('Preencha os campos!');
+        if (!nome) {
+            alert('Digite o nome do ingrediente!');
+            return;
+        }
+
+        if (quantidade <= 0) {
+            alert('Digite a quantidade!');
             return;
         }
 
         if (!doacao && valorTotal <= 0) {
-            alert('Digite o valor!');
+            alert('Digite o valor total!');
             return;
         }
 
@@ -229,7 +284,7 @@ const App = {
     },
 
     removerIngrediente(index) {
-        if (confirm('Remover?')) {
+        if (confirm('Remover este ingrediente?')) {
             this.events[this.selectedDay].ingredientes.splice(index, 1);
             this.atualizarListaIngredientes();
             this.atualizarResumoEvento();
@@ -288,8 +343,18 @@ const App = {
         const entrega = document.getElementById('vendaEntrega').value;
         const observacoes = document.getElementById('vendaObs').value;
 
-        if (!cliente || !produto || quantidade <= 0 || valorUnit <= 0) {
-            alert('Preencha todos os campos!');
+        if (!cliente) {
+            alert('Digite o nome do cliente!');
+            return;
+        }
+
+        if (!produto) {
+            alert('Digite o produto!');
+            return;
+        }
+
+        if (quantidade <= 0 || valorUnit <= 0) {
+            alert('Preencha quantidade e valor!');
             return;
         }
 
@@ -329,7 +394,6 @@ const App = {
         vendas.forEach((venda, index) => {
             const valorTotal = venda.quantidade * venda.valorUnit;
             const pendente = valorTotal - (venda.valorPago || 0);
-            const statusPagamento = pendente <= 0 ? '✅' : '⏳';
             const statusEntrega = venda.entrega === 'sim' ? '✅' : '⏳';
 
             html += `
@@ -347,7 +411,7 @@ const App = {
                         <div>Total:<br><strong>R$ ${valorTotal.toFixed(2)}</strong></div>
                         <div>Pago:<br><strong>R$ ${(venda.valorPago || 0).toFixed(2)}</strong></div>
                         <div>Falta:<br><strong class="${pendente > 0 ? 'warning' : 'success'}">R$ ${pendente.toFixed(2)}</strong></div>
-                        <div>Forma:<br><strong>${venda.formaPagamento}</strong></div>
+                        <div>Forma:<br><strong>${venda.formaPagamento.replace('_', ' ')}</strong></div>
                     </div>
                     
                     <div class="venda-actions">
@@ -387,7 +451,7 @@ const App = {
         const forma = document.getElementById('pagamentoForma').value;
 
         if (valor <= 0) {
-            alert('Digite um valor!');
+            alert('Digite um valor válido!');
             return;
         }
 
@@ -465,7 +529,6 @@ const App = {
 
             if (venda.entrega === 'sim') totalEntregues++;
 
-            // Por forma de pagamento
             switch(venda.formaPagamento) {
                 case 'dinheiro': totalDinheiro += venda.valorPago || 0; break;
                 case 'pix_veri': totalPixVeri += venda.valorPago || 0; break;
@@ -477,7 +540,6 @@ const App = {
         const lucro = totalVendas - totalCustos;
         const aReceber = totalVendas - totalRecebido;
 
-        // Atualiza os elementos
         document.getElementById('relCustos').innerHTML = `R$ ${totalCustos.toFixed(2)}`;
         document.getElementById('relVendas').innerHTML = `R$ ${totalVendas.toFixed(2)}`;
         document.getElementById('relLucro').innerHTML = `R$ ${lucro.toFixed(2)}`;
@@ -489,6 +551,17 @@ const App = {
         document.getElementById('relAReceber').innerHTML = `R$ ${aReceber.toFixed(2)}`;
         document.getElementById('relEntregues').innerHTML = `${totalEntregues} de ${vendas.length}`;
         document.getElementById('relItens').innerHTML = totalItens;
+    },
+
+    // ========== EXCLUIR EVENTO ==========
+    excluirEvento() {
+        if (!this.selectedDay) return;
+        
+        if (confirm('🗑️ Excluir este evento permanentemente?')) {
+            delete this.events[this.selectedDay];
+            this.salvarDados();
+            this.voltarCalendario();
+        }
     },
 
     // ========== NAVEGAÇÃO ==========
@@ -518,16 +591,6 @@ const App = {
         this.novaCantinaHoje();
         document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
         document.querySelector('.nav-item:nth-child(2)').classList.add('active');
-    },
-
-    excluirEvento() {
-        if (!this.selectedDay) return;
-        
-        if (confirm('🗑️ Excluir este evento?')) {
-            delete this.events[this.selectedDay];
-            this.salvarDados();
-            this.voltarCalendario();
-        }
     },
 
     // ========== DADOS ==========

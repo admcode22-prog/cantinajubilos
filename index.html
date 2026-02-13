@@ -84,6 +84,9 @@
 
             <!-- Tabs -->
             <div class="tabs">
+                <button class="tab-btn" onclick="app.mudarAba('evento')">
+                    <span>📋</span> Evento
+                </button>
                 <button class="tab-btn" onclick="app.mudarAba('custos')">
                     <span>💰</span> Custos
                 </button>
@@ -94,6 +97,30 @@
                     <span>📊</span> Relatório
                 </button>
             </div>
+
+            <!-- Aba Evento -->
+<div id="tabEvento" class="tab-pane">
+    <div class="form-card">
+        <div class="form-group">
+            <label>📋 Nome do Evento</label>
+            <input type="text" id="eventName" class="form-control" placeholder="Ex: Cantina do Jantar">
+        </div>
+        
+        <div class="form-group">
+            <label>👥 Responsável</label>
+            <input type="text" id="responsible" class="form-control" placeholder="Quem está organizando?">
+        </div>
+        
+        <div class="form-group">
+            <label>📝 Observações</label>
+            <textarea id="notes" class="form-control" rows="2" placeholder="Observações..."></textarea>
+        </div>
+        
+        <button class="btn btn-primary" onclick="app.salvarEvento()">
+            <span>💾</span> Salvar Informações
+        </button>
+    </div>
+</div>
 
             <!-- Aba Custos (Compacta) -->
             <div id="tabCustos" class="tab-pane">
