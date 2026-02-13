@@ -1,16 +1,30 @@
+// Configuração do Supabase
+const SUPABASE_URL = 'https://uqfznchyfcidyqlqauua.supabase.co'; // SUBSTITUA PELA SUA URL
+const SUPABASE_ANON_KEY = 'sb_publishable_covwt0qpmNmdoRy8oGVdng_kgSdCGBT'; // SUBSTITUA PELA SUA CHAVE
+
+// Headers para requisições
+const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+};
+
 const App = {
-    events: JSON.parse(localStorage.getItem('cantinaEvents')) || {},
+    events: {}, // Será carregado do Supabase
     currentMonth: new Date().getMonth(),
     currentYear: new Date().getFullYear(),
     selectedDay: null,
     vendaEditando: null,
     pagamentoVendaId: null,
+    carregando: false,
 
-    init() {
+    async init() {
+        this.mostrarLoading();
+        await this.carregarEventos();
         this.atualizarHeader();
         this.gerarCalendario();
         
-        // Event listeners para cálculos automáticos
+        // Event listeners
         const vendaQtd = document.getElementById('vendaQtd');
         const vendaValorUnit = document.getElementById('vendaValorUnit');
         const vendaValorPago = document.getElementById('vendaValorPago');
@@ -19,11 +33,126 @@ const App = {
         if (vendaValorUnit) vendaValorUnit.addEventListener('input', () => this.calcularTotalVenda());
         if (vendaValorPago) vendaValorPago.addEventListener('input', () => this.calcularPendenteVenda());
         
-        if (Object.keys(this.events).length === 0) {
-            this.criarDadosExemplo();
+        this.esconderLoading();
+    },
+
+    mostrarLoading() {
+        this.carregando = true;
+        // Você pode adicionar um spinner de loading se quiser
+    },
+
+    esconderLoading() {
+        this.carregando = false;
+    },
+
+    // ========== SUPABASE ==========
+    async carregarEventos() {
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+                method: 'GET',
+                headers: headers
+            });
+            
+            if (!response.ok) throw new Error('Erro ao carregar eventos');
+            
+            const dados = await response.json();
+            
+            // Converter array para objeto com data como chave
+            this.events = {};
+            dados.forEach(item => {
+                this.events[item.data] = item.evento;
+            });
+            
+            console.log('Eventos carregados:', this.events);
+            
+        } catch (error) {
+            console.error('Erro ao carregar eventos:', error);
+            alert('Erro ao carregar dados do servidor. Usando dados locais.');
+            
+            // Fallback para localStorage se Supabase falhar
+            const localData = localStorage.getItem('cantinaEvents');
+            this.events = localData ? JSON.parse(localData) : {};
         }
     },
 
+    async salvarEventoNoSupabase(data, evento) {
+        try {
+            // Verificar se já existe
+            const checkResponse = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
+                method: 'GET',
+                headers: headers
+            });
+            
+            const existente = await checkResponse.json();
+            
+            if (existente.length > 0) {
+                // Atualizar existente
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
+                    method: 'PATCH',
+                    headers: headers,
+                    body: JSON.stringify({ 
+                        evento: evento,
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Erro ao atualizar');
+            } else {
+                // Inserir novo
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ 
+                        data: data,
+                        evento: evento,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Erro ao inserir');
+            }
+            
+            console.log('Evento salvo no Supabase:', data);
+            
+        } catch (error) {
+            console.error('Erro ao salvar no Supabase:', error);
+            // Fallback para localStorage
+            localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
+        }
+    },
+
+    async removerEventoDoSupabase(data) {
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
+                method: 'DELETE',
+                headers: headers
+            });
+            
+            if (!response.ok) throw new Error('Erro ao remover');
+            
+            console.log('Evento removido do Supabase:', data);
+            
+        } catch (error) {
+            console.error('Erro ao remover do Supabase:', error);
+        }
+    },
+
+    // ========== SOBRESCREVER MÉTODOS DE SALVAMENTO ==========
+    async salvarDados() {
+        if (!this.selectedDay) return;
+        
+        const data = this.selectedDay;
+        const evento = this.events[data];
+        
+        // Salvar no Supabase
+        await this.salvarEventoNoSupabase(data, evento);
+        
+        // Backup no localStorage
+        localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
+    },
+
+    // ========== MÉTODOS EXISTENTES (com pequenas modificações) ==========
     atualizarHeader() {
         const hoje = new Date();
         document.getElementById('headerDate').innerHTML = hoje.toLocaleDateString('pt-BR', {
@@ -83,8 +212,7 @@ const App = {
         this.gerarCalendario();
     },
 
-    // ========== ABRIR DIA ==========
-    abrirDia(dataKey) {
+    async abrirDia(dataKey) {
         this.selectedDay = dataKey;
         
         if (!this.events[dataKey]) {
@@ -95,6 +223,9 @@ const App = {
                 ingredientes: [],
                 vendas: []
             };
+            
+            // Salvar automaticamente no Supabase ao criar novo evento
+            await this.salvarEventoNoSupabase(dataKey, this.events[dataKey]);
         }
 
         const [ano, mes, dia] = dataKey.split('-');
@@ -107,17 +238,14 @@ const App = {
         this.mudarAba('evento');
     },
 
-    // ========== CARREGAR DADOS DO EVENTO ==========
     carregarDadosEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
         const evento = this.events[this.selectedDay];
         
-        // Atualiza o card do evento
         document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Novo Evento';
         document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Clique para editar'}`;
         
-        // Carrega os campos da aba evento
         document.getElementById('eventName').value = evento.eventName || '';
         document.getElementById('responsible').value = evento.responsible || '';
         document.getElementById('notes').value = evento.notes || '';
@@ -146,7 +274,6 @@ const App = {
         document.getElementById('resumoEventoAReceber').innerHTML = `R$ ${aReceber.toFixed(2)}`;
     },
 
-    // ========== MUDAR ABA ==========
     mudarAba(aba) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(content => content.classList.remove('active'));
@@ -167,8 +294,7 @@ const App = {
         }
     },
 
-    // ========== EVENTO ==========
-    salvarEvento() {
+    async salvarEvento() {
         if (!this.selectedDay) return;
 
         const eventName = document.getElementById('eventName').value;
@@ -183,13 +309,11 @@ const App = {
         this.events[this.selectedDay].responsible = responsible;
         this.events[this.selectedDay].notes = notes;
 
-        // Atualiza o card do evento
         document.getElementById('selectedEventName').innerHTML = eventName || 'Novo Evento';
         document.getElementById('selectedResponsible').innerHTML = `👤 ${responsible || 'Clique para editar'}`;
 
-        this.salvarDados();
+        await this.salvarDados();
 
-        // Feedback visual
         const btn = event.target;
         const originalText = btn.innerHTML;
         btn.innerHTML = '<span>✅</span> Salvo!';
@@ -198,7 +322,6 @@ const App = {
         }, 1500);
     },
 
-    // ========== CUSTOS ==========
     mostrarFormIngrediente() {
         document.getElementById('formIngrediente').classList.remove('hidden');
         this.limparFormIngrediente();
@@ -216,7 +339,7 @@ const App = {
         document.getElementById('ingredienteDoacao').checked = false;
     },
 
-    adicionarIngrediente() {
+    async adicionarIngrediente() {
         if (!this.selectedDay) return;
 
         const nome = document.getElementById('ingredienteNome').value;
@@ -256,7 +379,7 @@ const App = {
         this.cancelarFormIngrediente();
         this.atualizarListaIngredientes();
         this.atualizarResumoEvento();
-        this.salvarDados();
+        await this.salvarDados();
     },
 
     atualizarListaIngredientes() {
@@ -283,16 +406,15 @@ const App = {
         document.getElementById('ingredientesList').innerHTML = html || '<div style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum ingrediente</div>';
     },
 
-    removerIngrediente(index) {
+    async removerIngrediente(index) {
         if (confirm('Remover este ingrediente?')) {
             this.events[this.selectedDay].ingredientes.splice(index, 1);
             this.atualizarListaIngredientes();
             this.atualizarResumoEvento();
-            this.salvarDados();
+            await this.salvarDados();
         }
     },
 
-    // ========== VENDAS ==========
     mostrarFormVenda() {
         document.getElementById('formVenda').classList.remove('hidden');
         this.limparFormVenda();
@@ -331,7 +453,7 @@ const App = {
         document.getElementById('vendaPendente').innerHTML = `R$ ${pendente.toFixed(2)}`;
     },
 
-    salvarVenda() {
+    async salvarVenda() {
         if (!this.selectedDay) return;
 
         const cliente = document.getElementById('vendaCliente').value;
@@ -382,7 +504,7 @@ const App = {
         this.cancelarFormVenda();
         this.atualizarListaVendas();
         this.atualizarResumoEvento();
-        this.salvarDados();
+        await this.salvarDados();
     },
 
     atualizarListaVendas() {
@@ -394,7 +516,6 @@ const App = {
         vendas.forEach((venda, index) => {
             const valorTotal = venda.quantidade * venda.valorUnit;
             const pendente = valorTotal - (venda.valorPago || 0);
-            const statusEntrega = venda.entrega === 'sim' ? '✅' : '⏳';
 
             html += `
                 <div class="venda-card">
@@ -427,7 +548,7 @@ const App = {
         document.getElementById('vendasList').innerHTML = html || '<div style="text-align: center; padding: 30px; color: var(--text-light);">Nenhuma venda</div>';
     },
 
-    abrirPagamento(index) {
+    async abrirPagamento(index) {
         this.pagamentoVendaId = index;
         const venda = this.events[this.selectedDay].vendas[index];
         const total = venda.quantidade * venda.valorUnit;
@@ -444,7 +565,7 @@ const App = {
         this.pagamentoVendaId = null;
     },
 
-    registrarPagamento() {
+    async registrarPagamento() {
         if (this.pagamentoVendaId === null || !this.selectedDay) return;
 
         const valor = parseFloat(document.getElementById('pagamentoValor').value) || 0;
@@ -470,10 +591,10 @@ const App = {
         this.cancelarPagamento();
         this.atualizarListaVendas();
         this.atualizarResumoEvento();
-        this.salvarDados();
+        await this.salvarDados();
     },
 
-    editarVenda(index) {
+    async editarVenda(index) {
         this.vendaEditando = index;
         const venda = this.events[this.selectedDay].vendas[index];
         
@@ -491,16 +612,15 @@ const App = {
         document.getElementById('formVenda').classList.remove('hidden');
     },
 
-    removerVenda(index) {
+    async removerVenda(index) {
         if (confirm('Remover esta venda?')) {
             this.events[this.selectedDay].vendas.splice(index, 1);
             this.atualizarListaVendas();
             this.atualizarResumoEvento();
-            this.salvarDados();
+            await this.salvarDados();
         }
     },
 
-    // ========== RELATÓRIO DO EVENTO ==========
     atualizarRelatorioEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
@@ -508,10 +628,8 @@ const App = {
         const ingredientes = evento.ingredientes || [];
         const vendas = evento.vendas || [];
         
-        // Custos
         const totalCustos = ingredientes.reduce((acc, item) => acc + (item.doacao ? 0 : item.valorTotal), 0);
         
-        // Vendas
         let totalVendas = 0;
         let totalRecebido = 0;
         let totalDinheiro = 0;
@@ -553,20 +671,31 @@ const App = {
         document.getElementById('relItens').innerHTML = totalItens;
     },
 
-    // ========== EXCLUIR EVENTO ==========
-    excluirEvento() {
+    async excluirEvento() {
         if (!this.selectedDay) return;
         
         if (confirm('🗑️ Excluir este evento permanentemente?')) {
-            delete this.events[this.selectedDay];
-            this.salvarDados();
+            const data = this.selectedDay;
+            delete this.events[data];
+            
+            // Remover do Supabase
+            try {
+                await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
+                    method: 'DELETE',
+                    headers: headers
+                });
+            } catch (error) {
+                console.error('Erro ao remover do Supabase:', error);
+            }
+            
+            // Remover do localStorage
+            localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
+            
             this.voltarCalendario();
         }
     },
 
-    // ========== NAVEGAÇÃO ==========
     voltarCalendario() {
-        this.salvarDados();
         document.getElementById('calendarSection').classList.remove('hidden');
         document.getElementById('managementSection').classList.add('hidden');
         this.gerarCalendario();
@@ -593,16 +722,11 @@ const App = {
         document.querySelector('.nav-item:nth-child(2)').classList.add('active');
     },
 
-    // ========== DADOS ==========
-    salvarDados() {
-        localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-    },
-
-    criarDadosExemplo() {
+    async criarDadosExemplo() {
         const hoje = new Date();
         const dataKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
         
-        this.events[dataKey] = {
+        const eventoExemplo = {
             eventName: 'Cantina - Jantar',
             responsible: 'Ana Souza',
             notes: 'Preparar com antecedência',
@@ -622,7 +746,14 @@ const App = {
             ]
         };
         
-        this.salvarDados();
+        this.events[dataKey] = eventoExemplo;
+        
+        // Salvar no Supabase
+        await this.salvarEventoNoSupabase(dataKey, eventoExemplo);
+        
+        // Salvar no localStorage
+        localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
+        
         this.gerarCalendario();
     },
 
