@@ -1,0 +1,45 @@
+# Arquivos do sistema
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Pastas do sistema Windows
+Ambiente de Impressão/
+Configurações locais/
+Meus documentos/
+
+# Arquivos de usuário
+.bash_history
+.gitconfig
+.lesshst
+.viminfo
+.vivaldi_reporting_data
+
+# Pastas de configuração
+.cache/
+.config/
+.docker/
+.npm/
+.nuget/
+
+# Ambiente virtual
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc

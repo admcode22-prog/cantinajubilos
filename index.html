@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Cantina Jovem 🍊</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">🍊</span>
+                <div>
+                    <h1>CantinaJubilos</h1>
+                    <span class="badge">Jovens</span>
+                </div>
+            </div>
+            <div class="date-badge" id="headerDate"></div>
+        </div>
+
+        <!-- Calendário -->
+        <div id="calendarSection" class="section">
+            <div class="calendar-header">
+                <div class="month-nav">
+                    <button class="icon-btn" onclick="app.anteriorMes()">←</button>
+                    <h2 id="monthYear" class="month-title">Janeiro 2026</h2>
+                    <button class="icon-btn" onclick="app.proximoMes()">→</button>
+                </div>
+                
+                <button class="btn btn-primary" onclick="app.novaCantinaHoje()">
+                    <span>➕</span> Nova Cantina
+                </button>
+            </div>
+
+            <div class="calendar-weekdays">
+                <span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span>
+            </div>
+
+            <div class="calendar-grid" id="calendarDays"></div>
+        </div>
+
+        <!-- Gerenciamento do Evento -->
+        <div id="managementSection" class="section hidden">
+            <button class="btn btn-back" onclick="app.voltarCalendario()">
+                <span>←</span> Voltar
+            </button>
+
+            <!-- Card do Evento Compacto -->
+            <div class="event-card-compact">
+                <div class="event-header">
+                    <div>
+                        <div class="event-date" id="selectedDate"></div>
+                        <div class="event-title" id="selectedEventName"></div>
+                    </div>
+                    <button class="btn-delete-event" onclick="app.excluirEvento()" title="Excluir evento">
+                        🗑️
+                    </button>
+                </div>
+                <div class="event-responsible" id="selectedResponsible"></div>
+            </div>
+
+            <!-- Mini Resumo do Evento -->
+            <div class="mini-summary" id="eventoResumo">
+                <div class="stat-mini">
+                    <span class="stat-mini-label">Custos</span>
+                    <span class="stat-mini-value" id="resumoEventoCusto">R$ 0</span>
+                </div>
+                <div class="stat-mini">
+                    <span class="stat-mini-label">Vendas</span>
+                    <span class="stat-mini-value" id="resumoEventoVendas">R$ 0</span>
+                </div>
+                <div class="stat-mini">
+                    <span class="stat-mini-label">Lucro</span>
+                    <span class="stat-mini-value profit" id="resumoEventoLucro">R$ 0</span>
+                </div>
+                <div class="stat-mini">
+                    <span class="stat-mini-label">A Receber</span>
+                    <span class="stat-mini-value warning" id="resumoEventoAReceber">R$ 0</span>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn" onclick="app.mudarAba('custos')">
+                    <span>💰</span> Custos
+                </button>
+                <button class="tab-btn active" onclick="app.mudarAba('vendas')">
+                    <span>💵</span> Vendas
+                </button>
+                <button class="tab-btn" onclick="app.mudarAba('relatorio')">
+                    <span>📊</span> Relatório
+                </button>
+            </div>
+
+            <!-- Aba Custos (Compacta) -->
+            <div id="tabCustos" class="tab-pane">
+                <div class="section-header">
+                    <h3>Ingredientes</h3>
+                    <button class="btn btn-primary btn-sm" onclick="app.mostrarFormIngrediente()">
+                        <span>+</span>
+                    </button>
+                </div>
+                
+                <div id="ingredientesList" class="compact-list"></div>
+                
+                <!-- Formulário Ingrediente -->
+                <div id="formIngrediente" class="modal-overlay hidden">
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3>➕ Ingrediente</h3>
+                            <button class="close-btn" onclick="app.cancelarFormIngrediente()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="text" id="ingredienteNome" class="form-control" placeholder="Nome">
+                            <div class="row" style="margin-top: 10px;">
+                                <input type="number" id="ingredienteQtd" class="form-control col" placeholder="Qtd">
+                                <select id="ingredienteUnidade" class="form-control col">
+                                    <option value="un">un</option>
+                                    <option value="kg">kg</option>
+                                    <option value="g">g</option>
+                                    <option value="l">L</option>
+                                </select>
+                            </div>
+                            <input type="number" id="ingredienteValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top: 10px;">
+                            <label class="checkbox" style="margin-top: 10px;">
+                                <input type="checkbox" id="ingredienteDoacao"> Doação
+                            </label>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline" onclick="app.cancelarFormIngrediente()">Cancelar</button>
+                            <button class="btn btn-primary" onclick="app.adicionarIngrediente()">Add</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aba Vendas -->
+            <div id="tabVendas" class="tab-pane active">
+                <!-- Botão Nova Venda -->
+                <button class="btn btn-primary btn-block" onclick="app.mostrarFormVenda()">
+                    <span>➕</span> Nova Venda
+                </button>
+
+                <!-- Lista de Vendas -->
+                <div id="vendasList" class="vendas-list"></div>
+
+                <!-- Formulário Venda -->
+                <div id="formVenda" class="modal-overlay hidden">
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3>➕ Nova Venda</h3>
+                            <button class="close-btn" onclick="app.cancelarFormVenda()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="text" id="vendaCliente" class="form-control" placeholder="Cliente">
+                            <input type="text" id="vendaProduto" class="form-control" placeholder="Produto" style="margin-top: 10px;">
+                            
+                            <div class="row" style="margin-top: 10px;">
+                                <input type="number" id="vendaQtd" class="form-control col" placeholder="Qtd" value="1">
+                                <input type="number" id="vendaValorUnit" class="form-control col" placeholder="R$ unit" step="0.01">
+                            </div>
+                            
+                            <div class="row" style="margin-top: 10px;">
+                                <div class="col">
+                                    <label style="font-size: 0.8rem;">Total</label>
+                                    <input type="number" id="vendaTotal" class="form-control" readonly>
+                                </div>
+                                <div class="col">
+                                    <label style="font-size: 0.8rem;">Pago</label>
+                                    <input type="number" id="vendaValorPago" class="form-control" step="0.01">
+                                </div>
+                            </div>
+                            
+                            <div class="row" style="margin-top: 10px;">
+                                <select id="vendaFormaPagamento" class="form-control col">
+                                    <option value="dinheiro">💵 Dinheiro</option>
+                                    <option value="pix_veri">📱 Pix Veri</option>
+                                    <option value="pix_jheni">📱 Pix Jheni</option>
+                                    <option value="debito">💳 Débito</option>
+                                </select>
+                                <select id="vendaEntrega" class="form-control col">
+                                    <option value="nao">🚫 Não entregue</option>
+                                    <option value="sim">✅ Entregue</option>
+                                </select>
+                            </div>
+                            
+                            <textarea id="vendaObs" class="form-control" placeholder="Obs" rows="2" style="margin-top: 10px;"></textarea>
+                            
+                            <div class="info-box" style="margin-top: 10px;" id="vendaPendenteBox">
+                                Pendente: <strong id="vendaPendente">R$ 0,00</strong>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline" onclick="app.cancelarFormVenda()">Cancelar</button>
+                            <button class="btn btn-primary" onclick="app.salvarVenda()">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário Pagamento -->
+                <div id="formPagamento" class="modal-overlay hidden">
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3>💰 Pagamento</h3>
+                            <button class="close-btn" onclick="app.cancelarPagamento()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="info-box">
+                                <div>Cliente: <strong id="pagamentoClienteInfo"></strong></div>
+                                <div>Pendente: <strong class="warning" id="pagamentoPendenteAtual"></strong></div>
+                            </div>
+                            
+                            <select id="pagamentoForma" class="form-control" style="margin-top: 10px;">
+                                <option value="dinheiro">💵 Dinheiro</option>
+                                <option value="pix_veri">📱 Pix Veri</option>
+                                <option value="pix_jheni">📱 Pix Jheni</option>
+                                <option value="debito">💳 Débito</option>
+                            </select>
+                            
+                            <input type="number" id="pagamentoValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top: 10px;">
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline" onclick="app.cancelarPagamento()">Cancelar</button>
+                            <button class="btn btn-success" onclick="app.registrarPagamento()">Pagar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aba Relatório do Evento -->
+            <div id="tabRelatorio" class="tab-pane">
+                <div class="report-card">
+                    <h3>📊 Relatório do Evento</h3>
+                    
+                    <div class="report-section">
+                        <div class="report-row">
+                            <span>💰 Total de Custos:</span>
+                            <span class="report-value" id="relCustos">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>💵 Total de Vendas:</span>
+                            <span class="report-value" id="relVendas">R$ 0,00</span>
+                        </div>
+                        <div class="report-row highlight">
+                            <span>🎯 Lucro:</span>
+                            <span class="report-value profit" id="relLucro">R$ 0,00</span>
+                        </div>
+                    </div>
+
+                    <div class="report-section">
+                        <h4>Formas de Pagamento</h4>
+                        <div class="report-row">
+                            <span>💵 Dinheiro:</span>
+                            <span class="report-value" id="relDinheiro">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>📱 Pix Veri:</span>
+                            <span class="report-value" id="relPixVeri">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>📱 Pix Jheni:</span>
+                            <span class="report-value" id="relPixJheni">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>💳 Débito:</span>
+                            <span class="report-value" id="relDebito">R$ 0,00</span>
+                        </div>
+                    </div>
+
+                    <div class="report-section">
+                        <div class="report-row">
+                            <span>✅ Recebido:</span>
+                            <span class="report-value success" id="relRecebido">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>⏳ A Receber:</span>
+                            <span class="report-value warning" id="relAReceber">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>🚚 Entregues:</span>
+                            <span class="report-value" id="relEntregues">0</span>
+                        </div>
+                        <div class="report-row">
+                            <span>📦 Total de Itens Vendidos:</span>
+                            <span class="report-value" id="relItens">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="app.mostrarCalendario()">
+                <span class="nav-icon">📅</span>
+                <span>Calendário</span>
+            </button>
+            <button class="nav-item" onclick="app.mostrarCantinaHoje()">
+                <span class="nav-icon">🍽️</span>
+                <span>Cantina</span>
+            </button>
+            <button class="nav-item" onclick="app.mostrarRelatorioGeral()">
+                <span class="nav-icon">📊</span>
+                <span>Geral</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
