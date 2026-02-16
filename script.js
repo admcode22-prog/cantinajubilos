@@ -218,48 +218,51 @@ const App = {
     },
 
     async abrirDia(dataKey) {
-        this.selectedDay = dataKey;
+    this.selectedDay = dataKey;
+    
+    if (!this.events[dataKey]) {
+        this.events[dataKey] = {
+            eventName: '',
+            responsible: '',
+            notes: '',
+            ingredientes: [],
+            vendas: [],
+            comprovantes: []
+        };
         
-        if (!this.events[dataKey]) {
-            this.events[dataKey] = {
-                eventName: '',
-                responsible: '',
-                notes: '',
-                ingredientes: [],
-                vendas: [],
-                comprovantes: []
-            };
-            
-            await this.salvarEventoNoSupabase(dataKey, this.events[dataKey]);
-        }
+        await this.salvarEventoNoSupabase(dataKey, this.events[dataKey]);
+    }
 
-        const [ano, mes, dia] = dataKey.split('-');
-        document.getElementById('selectedDate').innerHTML = `📅 ${dia}/${mes}/${ano}`;
-        
-        this.carregarDadosEvento();
-        
-        document.getElementById('calendarSection').classList.add('hidden');
-        document.getElementById('managementSection').classList.remove('hidden');
-        this.mudarAba('evento');
-    },
+    const [ano, mes, dia] = dataKey.split('-');
+    document.getElementById('selectedDate').innerHTML = `📅 ${dia}/${mes}/${ano}`;
+    
+    this.carregarDadosEvento();
+    
+    document.getElementById('calendarSection').classList.add('hidden');
+    document.getElementById('managementSection').classList.remove('hidden');
+    
+    // Garantir que a aba Evento fique ativa
+    this.mudarAba('evento');
+},
 
     carregarDadosEvento() {
-        if (!this.selectedDay || !this.events[this.selectedDay]) return;
+    if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
-        const evento = this.events[this.selectedDay];
-        
-        document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Novo Evento';
-        document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Clique para editar'}`;
-        
-        document.getElementById('eventName').value = evento.eventName || '';
-        document.getElementById('responsible').value = evento.responsible || '';
-        document.getElementById('notes').value = evento.notes || '';
-        
-        this.atualizarListaIngredientes();
-        this.atualizarListaComprovantes();
-        this.atualizarListaVendas();
-        this.atualizarResumoEvento();
-    },
+    const evento = this.events[this.selectedDay];
+    
+    document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Novo Evento';
+    document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Clique para editar'}`;
+    
+    // Atualizar campos da aba evento
+    document.getElementById('eventName').value = evento.eventName || '';
+    document.getElementById('responsible').value = evento.responsible || '';
+    document.getElementById('notes').value = evento.notes || '';
+    
+    this.atualizarListaIngredientes();
+    this.atualizarListaComprovantes();
+    this.atualizarListaVendas();
+    this.atualizarResumoEvento();
+},
 
     atualizarResumoEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
@@ -281,56 +284,68 @@ const App = {
     },
 
     mudarAba(aba) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(content => content.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(content => content.classList.remove('active'));
+    
+    if (aba === 'evento') {
+        document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+        document.getElementById('tabEvento').classList.add('active');
         
-        if (aba === 'evento') {
-            document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
-            document.getElementById('tabEvento').classList.add('active');
-        } else if (aba === 'custos') {
-            document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
-            document.getElementById('tabCustos').classList.add('active');
-        } else if (aba === 'vendas') {
-            document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
-            document.getElementById('tabVendas').classList.add('active');
-        } else if (aba === 'relatorio') {
-            document.querySelector('.tab-btn:nth-child(4)').classList.add('active');
-            document.getElementById('tabRelatorio').classList.add('active');
-            this.atualizarRelatorioEvento();
+        // Garantir que os campos da aba evento estejam preenchidos
+        if (this.selectedDay && this.events[this.selectedDay]) {
+            const evento = this.events[this.selectedDay];
+            document.getElementById('eventName').value = evento.eventName || '';
+            document.getElementById('responsible').value = evento.responsible || '';
+            document.getElementById('notes').value = evento.notes || '';
         }
-    },
+    } else if (aba === 'custos') {
+        document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+        document.getElementById('tabCustos').classList.add('active');
+    } else if (aba === 'vendas') {
+        document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
+        document.getElementById('tabVendas').classList.add('active');
+    } else if (aba === 'relatorio') {
+        document.querySelector('.tab-btn:nth-child(4)').classList.add('active');
+        document.getElementById('tabRelatorio').classList.add('active');
+        this.atualizarRelatorioEvento();
+    }
+},
 
     async salvarEvento() {
-        if (!this.selectedDay) return;
+    if (!this.selectedDay) return;
 
-        const eventName = document.getElementById('eventName').value;
-        const responsible = document.getElementById('responsible').value;
-        const notes = document.getElementById('notes').value;
+    const eventName = document.getElementById('eventName').value;
+    const responsible = document.getElementById('responsible').value;
+    const notes = document.getElementById('notes').value;
 
-        if (!this.events[this.selectedDay]) {
-            this.events[this.selectedDay] = {
-                ingredientes: [],
-                vendas: [],
-                comprovantes: []
-            };
-        }
+    if (!this.events[this.selectedDay]) {
+        this.events[this.selectedDay] = {
+            ingredientes: [],
+            vendas: [],
+            comprovantes: []
+        };
+    }
 
-        this.events[this.selectedDay].eventName = eventName;
-        this.events[this.selectedDay].responsible = responsible;
-        this.events[this.selectedDay].notes = notes;
+    this.events[this.selectedDay].eventName = eventName;
+    this.events[this.selectedDay].responsible = responsible;
+    this.events[this.selectedDay].notes = notes;
 
-        document.getElementById('selectedEventName').innerHTML = eventName || 'Novo Evento';
-        document.getElementById('selectedResponsible').innerHTML = `👤 ${responsible || 'Clique para editar'}`;
+    // Atualizar o card do evento
+    document.getElementById('selectedEventName').innerHTML = eventName || 'Novo Evento';
+    document.getElementById('selectedResponsible').innerHTML = `👤 ${responsible || 'Clique para editar'}`;
 
-        await this.salvarDados();
+    await this.salvarDados();
 
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span>✅</span> Salvo!';
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-        }, 1500);
-    },
+    // Feedback visual melhorado
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span>✅</span> Salvo!';
+    btn.style.background = '#10b981';
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.background = '';
+    }, 1500);
+},
 
     mostrarFormIngrediente(ingredienteId = null) {
         this.ingredienteEditando = ingredienteId;
