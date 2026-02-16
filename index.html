@@ -99,48 +99,62 @@
             </div>
 
             <!-- Aba Evento -->
-<div id="tabEvento" class="tab-pane">
-    <div class="form-card">
-        <div class="form-group">
-            <label>📋 Nome do Evento</label>
-            <input type="text" id="eventName" class="form-control" placeholder="Ex: Cantina do Jantar">
-        </div>
-        
-        <div class="form-group">
-            <label>👥 Responsável</label>
-            <input type="text" id="responsible" class="form-control" placeholder="Quem está organizando?">
-        </div>
-        
-        <div class="form-group">
-            <label>📝 Observações</label>
-            <textarea id="notes" class="form-control" rows="2" placeholder="Observações..."></textarea>
-        </div>
-        
-        <button class="btn btn-primary" onclick="app.salvarEvento()">
-            <span>💾</span> Salvar Informações
-        </button>
-    </div>
-</div>
+            <div id="tabEvento" class="tab-pane">
+                <div class="form-card">
+                    <div class="form-group">
+                        <label>📋 Nome do Evento</label>
+                        <input type="text" id="eventName" class="form-control" placeholder="Ex: Cantina do Jantar">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>👥 Responsável</label>
+                        <input type="text" id="responsible" class="form-control" placeholder="Quem está organizando?">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>📝 Observações</label>
+                        <textarea id="notes" class="form-control" rows="2" placeholder="Observações..."></textarea>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="app.salvarEvento()">
+                        <span>💾</span> Salvar Informações
+                    </button>
+                </div>
+            </div>
 
-            <!-- Aba Custos (Compacta) -->
+            <!-- Aba Custos -->
             <div id="tabCustos" class="tab-pane">
                 <div class="section-header">
                     <h3>Ingredientes</h3>
-                    <button class="btn btn-primary btn-sm" onclick="app.mostrarFormIngrediente()">
-                        <span>+</span>
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-primary btn-sm" onclick="app.mostrarFormIngrediente()">
+                            <span>+</span>
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="app.mostrarFormComprovante()">
+                            <span>📎</span>
+                        </button>
+                    </div>
                 </div>
                 
                 <div id="ingredientesList" class="compact-list"></div>
+                
+                <!-- Lista de Comprovantes -->
+                <div id="comprovantesSection" style="margin-top: 20px;">
+                    <div class="section-header">
+                        <h4>📎 Comprovantes</h4>
+                    </div>
+                    <div id="comprovantesList" class="compact-list"></div>
+                </div>
                 
                 <!-- Formulário Ingrediente -->
                 <div id="formIngrediente" class="modal-overlay hidden">
                     <div class="modal">
                         <div class="modal-header">
-                            <h3>➕ Ingrediente</h3>
+                            <h3 id="ingredienteModalTitle">➕ Ingrediente</h3>
                             <button class="close-btn" onclick="app.cancelarFormIngrediente()">✕</button>
                         </div>
                         <div class="modal-body">
+                            <input type="hidden" id="ingredienteEditId" value="">
                             <input type="text" id="ingredienteNome" class="form-control" placeholder="Nome">
                             <div class="row" style="margin-top: 10px;">
                                 <input type="number" id="ingredienteQtd" class="form-control col" placeholder="Qtd">
@@ -152,13 +166,77 @@
                                 </select>
                             </div>
                             <input type="number" id="ingredienteValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top: 10px;">
-                            <label class="checkbox" style="margin-top: 10px;">
-                                <input type="checkbox" id="ingredienteDoacao"> Doação
-                            </label>
+                            
+                            <!-- Status do ingrediente -->
+                            <div style="margin-top: 15px;">
+                                <label class="checkbox">
+                                    <input type="checkbox" id="ingredienteComprado"> ✓ Já comprei
+                                </label>
+                                <label class="checkbox" style="margin-top: 5px;">
+                                    <input type="checkbox" id="ingredienteDoacao"> 🎁 Doação
+                                </label>
+                            </div>
+                            
+                            <!-- Seleção de comprovante -->
+                            <div id="comprovanteSelectContainer" style="margin-top: 15px; display: none;">
+                                <label>Vincular a comprovante:</label>
+                                <select id="ingredienteComprovanteId" class="form-control" style="margin-top: 5px;">
+                                    <option value="">Nenhum</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn-outline" onclick="app.cancelarFormIngrediente()">Cancelar</button>
-                            <button class="btn btn-primary" onclick="app.adicionarIngrediente()">Add</button>
+                            <button class="btn btn-primary" onclick="app.salvarIngrediente()">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Formulário Comprovante -->
+                <div id="formComprovante" class="modal-overlay hidden">
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3>📎 Anexar Comprovante</h3>
+                            <button class="close-btn" onclick="app.cancelarFormComprovante()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="comprovanteEditId" value="">
+                            
+                            <div class="form-group">
+                                <label>Nome do Comprovante</label>
+                                <input type="text" id="comprovanteNome" class="form-control" placeholder="Ex: Mercado Central">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Data da Compra</label>
+                                <input type="date" id="comprovanteData" class="form-control">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Valor Total (R$)</label>
+                                <input type="number" id="comprovanteValor" class="form-control" placeholder="0,00" step="0.01">
+                            </div>
+                            
+                            <!-- Upload de imagem -->
+                            <div class="form-group">
+                                <label>Imagem do Comprovante</label>
+                                <input type="file" id="comprovanteImagem" accept="image/*" class="form-control" style="padding: 8px;">
+                                <div id="comprovantePreview" style="margin-top: 10px; text-align: center;">
+                                    <img id="previewImage" src="#" alt="Preview" style="max-width: 100%; max-height: 150px; display: none; border-radius: 8px;">
+                                </div>
+                            </div>
+                            
+                            <!-- Itens vinculados -->
+                            <div class="form-group">
+                                <label>Itens neste comprovante:</label>
+                                <div id="comprovanteItensList" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px;">
+                                    <!-- Itens serão listados aqui -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline" onclick="app.cancelarFormComprovante()">Cancelar</button>
+                            <button class="btn btn-primary" onclick="app.salvarComprovante()">Salvar</button>
                         </div>
                     </div>
                 </div>
@@ -315,6 +393,23 @@
                             <span class="report-value" id="relItens">0</span>
                         </div>
                     </div>
+                    
+                    <!-- Resumo de Custos com Comprovantes -->
+                    <div class="report-section">
+                        <h4>💰 Custos</h4>
+                        <div class="report-row">
+                            <span>🛒 Itens Comprados:</span>
+                            <span class="report-value" id="relItensComprados">0</span>
+                        </div>
+                        <div class="report-row">
+                            <span>📎 Comprovantes:</span>
+                            <span class="report-value" id="relTotalComprovantes">0</span>
+                        </div>
+                        <div class="report-row">
+                            <span>✅ Total Comprado:</span>
+                            <span class="report-value success" id="relTotalComprado">R$ 0,00</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -337,9 +432,9 @@
     </div>
 
     <!-- Loading Overlay -->
-<div id="loadingOverlay" class="loading-overlay hidden">
-    <div class="spinner"></div>
-</div>
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+    </div>
 
     <script src="script.js"></script>
 </body>

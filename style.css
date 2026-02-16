@@ -624,3 +624,46 @@ body {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* Novos estilos para ingredientes e comprovantes */
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.item-card.comprado {
+    background: #f0fdf4;
+    border-left-color: var(--success);
+}
+
+.item-badge {
+    background: var(--primary);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.6rem;
+    font-weight: 600;
+}
+
+.item-badge[style*="success"] {
+    background: var(--success);
+}
+
+#comprovantesSection {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 2px solid var(--border);
+}
+
+#comprovantesSection h4 {
+    color: var(--text);
+    margin-bottom: 12px;
+}

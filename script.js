@@ -1,8 +1,7 @@
 // Configuração do Supabase
-const SUPABASE_URL = 'https://uqfznchyfcidyqlqauua.supabase.co'; // SUBSTITUA PELA SUA URL
-const SUPABASE_ANON_KEY = 'sb_publishable_covwt0qpmNmdoRy8oGVdng_kgSdCGBT'; // SUBSTITUA PELA SUA CHAVE
+const SUPABASE_URL = 'https://uqfznchyfcidyqlqauua.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_covwt0qpmNmdoRy8oGVdng_kgSdCGBT';
 
-// Headers para requisições
 const headers = {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON_KEY,
@@ -10,12 +9,14 @@ const headers = {
 };
 
 const App = {
-    events: {}, // Será carregado do Supabase
+    events: {},
     currentMonth: new Date().getMonth(),
     currentYear: new Date().getFullYear(),
     selectedDay: null,
     vendaEditando: null,
     pagamentoVendaId: null,
+    ingredienteEditando: null,
+    comprovanteEditando: null,
     carregando: false,
 
     async init() {
@@ -28,21 +29,37 @@ const App = {
         const vendaQtd = document.getElementById('vendaQtd');
         const vendaValorUnit = document.getElementById('vendaValorUnit');
         const vendaValorPago = document.getElementById('vendaValorPago');
+        const comprovanteImagem = document.getElementById('comprovanteImagem');
         
         if (vendaQtd) vendaQtd.addEventListener('input', () => this.calcularTotalVenda());
         if (vendaValorUnit) vendaValorUnit.addEventListener('input', () => this.calcularTotalVenda());
         if (vendaValorPago) vendaValorPago.addEventListener('input', () => this.calcularPendenteVenda());
+        if (comprovanteImagem) comprovanteImagem.addEventListener('change', (e) => this.previewImagem(e));
         
         this.esconderLoading();
     },
 
     mostrarLoading() {
         this.carregando = true;
-        // Você pode adicionar um spinner de loading se quiser
+        document.getElementById('loadingOverlay')?.classList.remove('hidden');
     },
 
     esconderLoading() {
         this.carregando = false;
+        document.getElementById('loadingOverlay')?.classList.add('hidden');
+    },
+
+    previewImagem(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById('previewImage');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
     },
 
     // ========== SUPABASE ==========
@@ -57,7 +74,6 @@ const App = {
             
             const dados = await response.json();
             
-            // Converter array para objeto com data como chave
             this.events = {};
             dados.forEach(item => {
                 this.events[item.data] = item.evento;
@@ -69,7 +85,6 @@ const App = {
             console.error('Erro ao carregar eventos:', error);
             alert('Erro ao carregar dados do servidor. Usando dados locais.');
             
-            // Fallback para localStorage se Supabase falhar
             const localData = localStorage.getItem('cantinaEvents');
             this.events = localData ? JSON.parse(localData) : {};
         }
@@ -77,7 +92,6 @@ const App = {
 
     async salvarEventoNoSupabase(data, evento) {
         try {
-            // Verificar se já existe
             const checkResponse = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
                 method: 'GET',
                 headers: headers
@@ -86,7 +100,6 @@ const App = {
             const existente = await checkResponse.json();
             
             if (existente.length > 0) {
-                // Atualizar existente
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
                     method: 'PATCH',
                     headers: headers,
@@ -98,7 +111,6 @@ const App = {
                 
                 if (!response.ok) throw new Error('Erro ao atualizar');
             } else {
-                // Inserir novo
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
                     method: 'POST',
                     headers: headers,
@@ -117,7 +129,6 @@ const App = {
             
         } catch (error) {
             console.error('Erro ao salvar no Supabase:', error);
-            // Fallback para localStorage
             localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
         }
     },
@@ -138,21 +149,17 @@ const App = {
         }
     },
 
-    // ========== SOBRESCREVER MÉTODOS DE SALVAMENTO ==========
     async salvarDados() {
         if (!this.selectedDay) return;
         
         const data = this.selectedDay;
         const evento = this.events[data];
         
-        // Salvar no Supabase
         await this.salvarEventoNoSupabase(data, evento);
-        
-        // Backup no localStorage
         localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
     },
 
-    // ========== MÉTODOS EXISTENTES (com pequenas modificações) ==========
+    // ========== MÉTODOS DO CALENDÁRIO ==========
     atualizarHeader() {
         const hoje = new Date();
         document.getElementById('headerDate').innerHTML = hoje.toLocaleDateString('pt-BR', {
@@ -221,10 +228,10 @@ const App = {
                 responsible: '',
                 notes: '',
                 ingredientes: [],
-                vendas: []
+                vendas: [],
+                comprovantes: []
             };
             
-            // Salvar automaticamente no Supabase ao criar novo evento
             await this.salvarEventoNoSupabase(dataKey, this.events[dataKey]);
         }
 
@@ -251,6 +258,7 @@ const App = {
         document.getElementById('notes').value = evento.notes || '';
         
         this.atualizarListaIngredientes();
+        this.atualizarListaComprovantes();
         this.atualizarListaVendas();
         this.atualizarResumoEvento();
     },
@@ -294,6 +302,7 @@ const App = {
         }
     },
 
+    // ========== EVENTO ==========
     async salvarEvento() {
         if (!this.selectedDay) return;
 
@@ -302,7 +311,11 @@ const App = {
         const notes = document.getElementById('notes').value;
 
         if (!this.events[this.selectedDay]) {
-            this.events[this.selectedDay] = {};
+            this.events[this.selectedDay] = {
+                ingredientes: [],
+                vendas: [],
+                comprovantes: []
+            };
         }
 
         this.events[this.selectedDay].eventName = eventName;
@@ -322,31 +335,89 @@ const App = {
         }, 1500);
     },
 
-    mostrarFormIngrediente() {
-        document.getElementById('formIngrediente').classList.remove('hidden');
+    // ========== CUSTOS ==========
+    mostrarFormIngrediente(ingredienteId = null) {
+        this.ingredienteEditando = ingredienteId;
+        const modalTitle = document.getElementById('ingredienteModalTitle');
+        modalTitle.innerHTML = ingredienteId ? '✏️ Editar Ingrediente' : '➕ Ingrediente';
+        
         this.limparFormIngrediente();
+        
+        if (ingredienteId && this.events[this.selectedDay].ingredientes) {
+            const ingrediente = this.events[this.selectedDay].ingredientes.find(i => i.id === ingredienteId);
+            if (ingrediente) {
+                document.getElementById('ingredienteEditId').value = ingrediente.id;
+                document.getElementById('ingredienteNome').value = ingrediente.nome;
+                document.getElementById('ingredienteQtd').value = ingrediente.quantidade;
+                document.getElementById('ingredienteUnidade').value = ingrediente.unidade;
+                document.getElementById('ingredienteValor').value = ingrediente.valorTotal;
+                document.getElementById('ingredienteComprado').checked = ingrediente.comprado || false;
+                document.getElementById('ingredienteDoacao').checked = ingrediente.doacao || false;
+                document.getElementById('ingredienteComprovanteId').value = ingrediente.comprovanteId || '';
+            }
+        }
+        
+        // Atualizar lista de comprovantes no select
+        this.atualizarSelectComprovantes();
+        
+        document.getElementById('formIngrediente').classList.remove('hidden');
+    },
+
+    atualizarSelectComprovantes() {
+        const select = document.getElementById('ingredienteComprovanteId');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Nenhum</option>';
+        
+        const comprovantes = this.events[this.selectedDay]?.comprovantes || [];
+        comprovantes.forEach(comp => {
+            const option = document.createElement('option');
+            option.value = comp.id;
+            option.textContent = `${comp.nome} (R$ ${comp.valorTotal.toFixed(2)})`;
+            select.appendChild(option);
+        });
+        
+        // Mostrar select apenas se houver comprovantes
+        const container = document.getElementById('comprovanteSelectContainer');
+        if (container) {
+            container.style.display = comprovantes.length > 0 ? 'block' : 'none';
+        }
     },
 
     cancelarFormIngrediente() {
         document.getElementById('formIngrediente').classList.add('hidden');
+        this.ingredienteEditando = null;
     },
 
     limparFormIngrediente() {
+        document.getElementById('ingredienteEditId').value = '';
         document.getElementById('ingredienteNome').value = '';
         document.getElementById('ingredienteQtd').value = '';
         document.getElementById('ingredienteUnidade').value = 'un';
         document.getElementById('ingredienteValor').value = '';
+        document.getElementById('ingredienteComprado').checked = false;
         document.getElementById('ingredienteDoacao').checked = false;
+        document.getElementById('ingredienteComprovanteId').value = '';
+        
+        // Limpar preview da imagem
+        const preview = document.getElementById('previewImage');
+        if (preview) {
+            preview.src = '#';
+            preview.style.display = 'none';
+        }
     },
 
-    async adicionarIngrediente() {
+    async salvarIngrediente() {
         if (!this.selectedDay) return;
 
+        const id = document.getElementById('ingredienteEditId').value || Date.now();
         const nome = document.getElementById('ingredienteNome').value;
         const quantidade = parseFloat(document.getElementById('ingredienteQtd').value) || 0;
         const unidade = document.getElementById('ingredienteUnidade').value;
         const valorTotal = parseFloat(document.getElementById('ingredienteValor').value) || 0;
+        const comprado = document.getElementById('ingredienteComprado').checked;
         const doacao = document.getElementById('ingredienteDoacao').checked;
+        const comprovanteId = document.getElementById('ingredienteComprovanteId').value || null;
 
         if (!nome) {
             alert('Digite o nome do ingrediente!');
@@ -367,17 +438,31 @@ const App = {
             this.events[this.selectedDay].ingredientes = [];
         }
 
-        this.events[this.selectedDay].ingredientes.push({
-            id: Date.now(),
+        const ingrediente = {
+            id,
             nome,
             quantidade,
             unidade,
             valorTotal,
-            doacao
-        });
+            comprado,
+            doacao,
+            comprovanteId
+        };
+
+        if (this.ingredienteEditando) {
+            // Editar existente
+            const index = this.events[this.selectedDay].ingredientes.findIndex(i => i.id === this.ingredienteEditando);
+            if (index !== -1) {
+                this.events[this.selectedDay].ingredientes[index] = ingrediente;
+            }
+        } else {
+            // Adicionar novo
+            this.events[this.selectedDay].ingredientes.push(ingrediente);
+        }
 
         this.cancelarFormIngrediente();
         this.atualizarListaIngredientes();
+        this.atualizarListaComprovantes();
         this.atualizarResumoEvento();
         await this.salvarDados();
     },
@@ -388,16 +473,33 @@ const App = {
         const ingredientes = this.events[this.selectedDay].ingredientes || [];
         let html = '';
 
-        ingredientes.forEach((item, index) => {
+        ingredientes.sort((a, b) => a.nome.localeCompare(b.nome));
+
+        ingredientes.forEach((item) => {
+            const compradoClass = item.comprado ? 'comprado' : '';
+            const compradoText = item.comprado ? '✅' : '⏳';
+            
             html += `
-                <div class="item-card">
+                <div class="item-card ${compradoClass}" style="${item.comprado ? 'opacity: 0.7;' : ''}">
                     <div class="item-info">
-                        <span class="item-name">${item.nome}</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="item-name">${item.nome}</span>
+                            ${item.doacao ? '<span class="item-badge">🎁</span>' : ''}
+                            ${item.comprado ? '<span class="item-badge" style="background: var(--success);">✓ Comprado</span>' : ''}
+                        </div>
                         <span class="item-details">${item.quantidade} ${item.unidade} • R$ ${item.valorTotal.toFixed(2)}</span>
+                        ${item.comprovanteId ? '<span class="item-details" style="color: var(--primary);">📎 Com comprovante</span>' : ''}
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        ${item.doacao ? '<span class="item-badge">🎁</span>' : ''}
-                        <button class="btn-delete-event" style="background: var(--danger); width: 28px; height: 28px;" onclick="app.removerIngrediente(${index})">🗑️</button>
+                        <button class="btn-icon" style="background: var(--success);" onclick="app.toggleCompradoIngrediente('${item.id}')" title="Marcar como comprado">
+                            ${compradoText}
+                        </button>
+                        <button class="btn-icon" style="background: var(--primary);" onclick="app.mostrarFormIngrediente('${item.id}')" title="Editar">
+                            ✏️
+                        </button>
+                        <button class="btn-icon" style="background: var(--danger);" onclick="app.removerIngrediente('${item.id}')" title="Remover">
+                            🗑️
+                        </button>
                     </div>
                 </div>
             `;
@@ -406,15 +508,217 @@ const App = {
         document.getElementById('ingredientesList').innerHTML = html || '<div style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum ingrediente</div>';
     },
 
-    async removerIngrediente(index) {
-        if (confirm('Remover este ingrediente?')) {
-            this.events[this.selectedDay].ingredientes.splice(index, 1);
+    async toggleCompradoIngrediente(id) {
+        const ingrediente = this.events[this.selectedDay].ingredientes.find(i => i.id == id);
+        if (ingrediente) {
+            ingrediente.comprado = !ingrediente.comprado;
             this.atualizarListaIngredientes();
+            await this.salvarDados();
+        }
+    },
+
+    async removerIngrediente(id) {
+        if (confirm('Remover este ingrediente?')) {
+            this.events[this.selectedDay].ingredientes = this.events[this.selectedDay].ingredientes.filter(i => i.id != id);
+            this.atualizarListaIngredientes();
+            this.atualizarListaComprovantes();
             this.atualizarResumoEvento();
             await this.salvarDados();
         }
     },
 
+    // ========== COMPROVANTES ==========
+    mostrarFormComprovante(comprovanteId = null) {
+        this.comprovanteEditando = comprovanteId;
+        this.limparFormComprovante();
+        
+        if (comprovanteId && this.events[this.selectedDay].comprovantes) {
+            const comprovante = this.events[this.selectedDay].comprovantes.find(c => c.id === comprovanteId);
+            if (comprovante) {
+                document.getElementById('comprovanteEditId').value = comprovante.id;
+                document.getElementById('comprovanteNome').value = comprovante.nome;
+                document.getElementById('comprovanteData').value = comprovante.data || '';
+                document.getElementById('comprovanteValor').value = comprovante.valorTotal || 0;
+                
+                if (comprovante.imagem) {
+                    const preview = document.getElementById('previewImage');
+                    preview.src = comprovante.imagem;
+                    preview.style.display = 'block';
+                }
+            }
+        }
+        
+        // Atualizar lista de itens vinculados
+        this.atualizarListaItensComprovante();
+        
+        document.getElementById('formComprovante').classList.remove('hidden');
+    },
+
+    cancelarFormComprovante() {
+        document.getElementById('formComprovante').classList.add('hidden');
+        this.comprovanteEditando = null;
+    },
+
+    limparFormComprovante() {
+        document.getElementById('comprovanteEditId').value = '';
+        document.getElementById('comprovanteNome').value = '';
+        document.getElementById('comprovanteData').value = '';
+        document.getElementById('comprovanteValor').value = '';
+        document.getElementById('comprovanteImagem').value = '';
+        
+        const preview = document.getElementById('previewImage');
+        preview.src = '#';
+        preview.style.display = 'none';
+    },
+
+    atualizarListaItensComprovante() {
+        const container = document.getElementById('comprovanteItensList');
+        if (!container) return;
+        
+        const comprovanteId = this.comprovanteEditando;
+        const ingredientes = this.events[this.selectedDay]?.ingredientes || [];
+        
+        let html = '';
+        ingredientes.forEach(item => {
+            const vinculado = item.comprovanteId == comprovanteId;
+            html += `
+                <div style="display: flex; align-items: center; gap: 8px; padding: 4px; background: ${vinculado ? 'var(--primary-light)' : 'transparent'}; border-radius: 4px; margin-bottom: 4px;">
+                    <span style="flex: 1;">${item.nome} - R$ ${item.valorTotal.toFixed(2)}</span>
+                    ${vinculado ? '<span style="color: var(--success);">✓</span>' : ''}
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html || '<p>Nenhum item cadastrado</p>';
+    },
+
+    async salvarComprovante() {
+        if (!this.selectedDay) return;
+
+        const id = document.getElementById('comprovanteEditId').value || Date.now();
+        const nome = document.getElementById('comprovanteNome').value;
+        const data = document.getElementById('comprovanteData').value;
+        const valorTotal = parseFloat(document.getElementById('comprovanteValor').value) || 0;
+        const imagemInput = document.getElementById('comprovanteImagem');
+        
+        let imagem = null;
+        if (imagemInput.files && imagemInput.files[0]) {
+            const reader = new FileReader();
+            imagem = await new Promise((resolve) => {
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(imagemInput.files[0]);
+            });
+        }
+
+        if (!nome) {
+            alert('Digite o nome do comprovante!');
+            return;
+        }
+
+        if (!this.events[this.selectedDay].comprovantes) {
+            this.events[this.selectedDay].comprovantes = [];
+        }
+
+        const comprovante = {
+            id,
+            nome,
+            data,
+            valorTotal,
+            imagem: imagem || (this.comprovanteEditando ? 
+                this.events[this.selectedDay].comprovantes.find(c => c.id === this.comprovanteEditando)?.imagem : null)
+        };
+
+        if (this.comprovanteEditando) {
+            const index = this.events[this.selectedDay].comprovantes.findIndex(c => c.id === this.comprovanteEditando);
+            if (index !== -1) {
+                this.events[this.selectedDay].comprovantes[index] = comprovante;
+            }
+        } else {
+            this.events[this.selectedDay].comprovantes.push(comprovante);
+        }
+
+        this.cancelarFormComprovante();
+        this.atualizarListaComprovantes();
+        this.atualizarSelectComprovantes();
+        await this.salvarDados();
+    },
+
+    atualizarListaComprovantes() {
+        if (!this.selectedDay || !this.events[this.selectedDay]) return;
+
+        const comprovantes = this.events[this.selectedDay].comprovantes || [];
+        let html = '';
+
+        comprovantes.forEach((comp, index) => {
+            // Contar itens vinculados
+            const itensVinculados = (this.events[this.selectedDay].ingredientes || [])
+                .filter(i => i.comprovanteId == comp.id).length;
+            
+            html += `
+                <div class="item-card" style="border-left-color: var(--success);">
+                    <div class="item-info">
+                        <span class="item-name">📎 ${comp.nome}</span>
+                        <span class="item-details">${comp.data || 'Sem data'} • R$ ${comp.valorTotal.toFixed(2)}</span>
+                        <span class="item-details">${itensVinculados} itens vinculados</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button class="btn-icon" style="background: var(--primary);" onclick="app.verComprovante('${comp.id}')" title="Ver">
+                            👁️
+                        </button>
+                        <button class="btn-icon" style="background: var(--warning);" onclick="app.mostrarFormComprovante('${comp.id}')" title="Editar">
+                            ✏️
+                        </button>
+                        <button class="btn-icon" style="background: var(--danger);" onclick="app.removerComprovante('${comp.id}')" title="Remover">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        document.getElementById('comprovantesList').innerHTML = html || '<div style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum comprovante</div>';
+    },
+
+    verComprovante(id) {
+        const comprovante = this.events[this.selectedDay].comprovantes.find(c => c.id == id);
+        if (comprovante?.imagem) {
+            // Abrir modal com imagem
+            const win = window.open();
+            win.document.write(`
+                <html>
+                    <head><title>${comprovante.nome}</title></head>
+                    <body style="margin:0; display:flex; align-items:center; justify-content:center; background:#f0f0f0;">
+                        <img src="${comprovante.imagem}" style="max-width:100%; max-height:100vh; object-fit:contain;">
+                    </body>
+                </html>
+            `);
+        } else {
+            alert('Este comprovante não possui imagem!');
+        }
+    },
+
+    async removerComprovante(id) {
+        if (confirm('Remover este comprovante? Os itens vinculados serão desvinculados.')) {
+            // Desvincular itens
+            if (this.events[this.selectedDay].ingredientes) {
+                this.events[this.selectedDay].ingredientes.forEach(item => {
+                    if (item.comprovanteId == id) {
+                        item.comprovanteId = null;
+                    }
+                });
+            }
+            
+            // Remover comprovante
+            this.events[this.selectedDay].comprovantes = this.events[this.selectedDay].comprovantes.filter(c => c.id != id);
+            
+            this.atualizarListaIngredientes();
+            this.atualizarListaComprovantes();
+            this.atualizarSelectComprovantes();
+            await this.salvarDados();
+        }
+    },
+
+    // ========== VENDAS ==========
     mostrarFormVenda() {
         document.getElementById('formVenda').classList.remove('hidden');
         this.limparFormVenda();
@@ -485,6 +789,7 @@ const App = {
         }
 
         const venda = {
+            id: this.vendaEditando || Date.now(),
             cliente,
             produto,
             quantidade,
@@ -495,8 +800,11 @@ const App = {
             observacoes
         };
 
-        if (this.vendaEditando !== null) {
-            this.events[this.selectedDay].vendas[this.vendaEditando] = venda;
+        if (this.vendaEditando) {
+            const index = this.events[this.selectedDay].vendas.findIndex(v => v.id === this.vendaEditando);
+            if (index !== -1) {
+                this.events[this.selectedDay].vendas[index] = venda;
+            }
         } else {
             this.events[this.selectedDay].vendas.push(venda);
         }
@@ -513,7 +821,9 @@ const App = {
         const vendas = this.events[this.selectedDay].vendas || [];
         let html = '';
 
-        vendas.forEach((venda, index) => {
+        vendas.sort((a, b) => a.cliente.localeCompare(b.cliente));
+
+        vendas.forEach((venda) => {
             const valorTotal = venda.quantidade * venda.valorUnit;
             const pendente = valorTotal - (venda.valorPago || 0);
 
@@ -537,9 +847,9 @@ const App = {
                     
                     <div class="venda-actions">
                         ${pendente > 0 ? 
-                            `<button class="btn btn-success btn-sm" style="flex: 1;" onclick="app.abrirPagamento(${index})">💰 Pagar</button>` : ''}
-                        <button class="btn btn-outline btn-sm" style="flex: 1;" onclick="app.editarVenda(${index})">✏️</button>
-                        <button class="btn btn-danger btn-sm" style="width: 40px;" onclick="app.removerVenda(${index})">🗑️</button>
+                            `<button class="btn btn-success btn-sm" style="flex: 1;" onclick="app.abrirPagamento('${venda.id}')">💰 Pagar</button>` : ''}
+                        <button class="btn btn-outline btn-sm" style="flex: 1;" onclick="app.editarVenda('${venda.id}')">✏️</button>
+                        <button class="btn btn-danger btn-sm" style="width: 40px;" onclick="app.removerVenda('${venda.id}')">🗑️</button>
                     </div>
                 </div>
             `;
@@ -548,9 +858,9 @@ const App = {
         document.getElementById('vendasList').innerHTML = html || '<div style="text-align: center; padding: 30px; color: var(--text-light);">Nenhuma venda</div>';
     },
 
-    async abrirPagamento(index) {
-        this.pagamentoVendaId = index;
-        const venda = this.events[this.selectedDay].vendas[index];
+    async abrirPagamento(id) {
+        this.pagamentoVendaId = id;
+        const venda = this.events[this.selectedDay].vendas.find(v => v.id == id);
         const total = venda.quantidade * venda.valorUnit;
         const pendente = total - (venda.valorPago || 0);
         
@@ -576,7 +886,7 @@ const App = {
             return;
         }
 
-        const venda = this.events[this.selectedDay].vendas[this.pagamentoVendaId];
+        const venda = this.events[this.selectedDay].vendas.find(v => v.id == this.pagamentoVendaId);
         const total = venda.quantidade * venda.valorUnit;
         const novoPago = (venda.valorPago || 0) + valor;
 
@@ -594,9 +904,9 @@ const App = {
         await this.salvarDados();
     },
 
-    async editarVenda(index) {
-        this.vendaEditando = index;
-        const venda = this.events[this.selectedDay].vendas[index];
+    editarVenda(id) {
+        this.vendaEditando = id;
+        const venda = this.events[this.selectedDay].vendas.find(v => v.id == id);
         
         document.getElementById('vendaCliente').value = venda.cliente;
         document.getElementById('vendaProduto').value = venda.produto;
@@ -612,23 +922,29 @@ const App = {
         document.getElementById('formVenda').classList.remove('hidden');
     },
 
-    async removerVenda(index) {
+    async removerVenda(id) {
         if (confirm('Remover esta venda?')) {
-            this.events[this.selectedDay].vendas.splice(index, 1);
+            this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => v.id != id);
             this.atualizarListaVendas();
             this.atualizarResumoEvento();
             await this.salvarDados();
         }
     },
 
+    // ========== RELATÓRIOS ==========
     atualizarRelatorioEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
         const evento = this.events[this.selectedDay];
         const ingredientes = evento.ingredientes || [];
         const vendas = evento.vendas || [];
+        const comprovantes = evento.comprovantes || [];
         
         const totalCustos = ingredientes.reduce((acc, item) => acc + (item.doacao ? 0 : item.valorTotal), 0);
+        const totalComprado = ingredientes
+            .filter(item => item.comprado && !item.doacao)
+            .reduce((acc, item) => acc + item.valorTotal, 0);
+        const itensComprados = ingredientes.filter(item => item.comprado).length;
         
         let totalVendas = 0;
         let totalRecebido = 0;
@@ -669,8 +985,12 @@ const App = {
         document.getElementById('relAReceber').innerHTML = `R$ ${aReceber.toFixed(2)}`;
         document.getElementById('relEntregues').innerHTML = `${totalEntregues} de ${vendas.length}`;
         document.getElementById('relItens').innerHTML = totalItens;
+        document.getElementById('relItensComprados').innerHTML = itensComprados;
+        document.getElementById('relTotalComprovantes').innerHTML = comprovantes.length;
+        document.getElementById('relTotalComprado').innerHTML = `R$ ${totalComprado.toFixed(2)}`;
     },
 
+    // ========== NAVEGAÇÃO ==========
     async excluirEvento() {
         if (!this.selectedDay) return;
         
@@ -678,7 +998,6 @@ const App = {
             const data = this.selectedDay;
             delete this.events[data];
             
-            // Remover do Supabase
             try {
                 await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
                     method: 'DELETE',
@@ -688,9 +1007,7 @@ const App = {
                 console.error('Erro ao remover do Supabase:', error);
             }
             
-            // Remover do localStorage
             localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-            
             this.voltarCalendario();
         }
     },
@@ -720,41 +1037,6 @@ const App = {
         this.novaCantinaHoje();
         document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
         document.querySelector('.nav-item:nth-child(2)').classList.add('active');
-    },
-
-    async criarDadosExemplo() {
-        const hoje = new Date();
-        const dataKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
-        
-        const eventoExemplo = {
-            eventName: 'Cantina - Jantar',
-            responsible: 'Ana Souza',
-            notes: 'Preparar com antecedência',
-            ingredientes: [
-                { nome: 'Pão', quantidade: 30, unidade: 'un', valorTotal: 45.00, doacao: false },
-                { nome: 'Salsicha', quantidade: 2, unidade: 'kg', valorTotal: 40.00, doacao: false }
-            ],
-            vendas: [
-                { 
-                    cliente: 'João', produto: 'Hot Dog', quantidade: 2, valorUnit: 8.00, 
-                    valorPago: 16.00, formaPagamento: 'dinheiro', entrega: 'sim', observacoes: '' 
-                },
-                { 
-                    cliente: 'Maria', produto: 'Hot Dog', quantidade: 3, valorUnit: 8.00, 
-                    valorPago: 16.00, formaPagamento: 'pix_veri', entrega: 'nao', observacoes: '' 
-                }
-            ]
-        };
-        
-        this.events[dataKey] = eventoExemplo;
-        
-        // Salvar no Supabase
-        await this.salvarEventoNoSupabase(dataKey, eventoExemplo);
-        
-        // Salvar no localStorage
-        localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-        
-        this.gerarCalendario();
     },
 
     mostrarRelatorioGeral() {
