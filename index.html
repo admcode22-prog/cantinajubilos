@@ -228,8 +228,8 @@
                             
                             <!-- Itens vinculados -->
                             <div class="form-group">
-                                <label>Itens neste comprovante:</label>
-                                <div id="comprovanteItensList" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px;">
+                                <label>Selecione os itens deste comprovante:</label>
+                                <div id="comprovanteItensList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-top: 5px;">
                                     <!-- Itens serão listados aqui -->
                                 </div>
                             </div>
@@ -408,6 +408,10 @@
                         <div class="report-row">
                             <span>✅ Total Comprado:</span>
                             <span class="report-value success" id="relTotalComprado">R$ 0,00</span>
+                        </div>
+                        <div class="report-row" id="relItensSemValor">
+                            <span>⏳ Itens sem valor:</span>
+                            <span class="report-value warning">0</span>
                         </div>
                     </div>
                 </div>

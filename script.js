@@ -18,6 +18,7 @@ const App = {
     ingredienteEditando: null,
     comprovanteEditando: null,
     carregando: false,
+    ingredientesSelecionados: [],
 
     async init() {
         this.mostrarLoading();
@@ -25,7 +26,6 @@ const App = {
         this.atualizarHeader();
         this.gerarCalendario();
         
-        // Event listeners
         const vendaQtd = document.getElementById('vendaQtd');
         const vendaValorUnit = document.getElementById('vendaValorUnit');
         const vendaValorPago = document.getElementById('vendaValorPago');
@@ -62,7 +62,6 @@ const App = {
         }
     },
 
-    // ========== SUPABASE ==========
     async carregarEventos() {
         try {
             const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
@@ -159,7 +158,6 @@ const App = {
         localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
     },
 
-    // ========== MÉTODOS DO CALENDÁRIO ==========
     atualizarHeader() {
         const hoje = new Date();
         document.getElementById('headerDate').innerHTML = hoje.toLocaleDateString('pt-BR', {
@@ -270,7 +268,7 @@ const App = {
         const ingredientes = evento.ingredientes || [];
         const vendas = evento.vendas || [];
         
-        const totalCustos = ingredientes.reduce((acc, item) => acc + (item.doacao ? 0 : item.valorTotal), 0);
+        const totalCustos = ingredientes.reduce((acc, item) => acc + (item.doacao ? 0 : (item.valorTotal || 0)), 0);
         const totalVendas = vendas.reduce((acc, venda) => acc + (venda.quantidade * venda.valorUnit), 0);
         const totalRecebido = vendas.reduce((acc, venda) => acc + (venda.valorPago || 0), 0);
         const aReceber = totalVendas - totalRecebido;
@@ -302,7 +300,6 @@ const App = {
         }
     },
 
-    // ========== EVENTO ==========
     async salvarEvento() {
         if (!this.selectedDay) return;
 
@@ -335,31 +332,35 @@ const App = {
         }, 1500);
     },
 
-    // ========== CUSTOS ==========
     mostrarFormIngrediente(ingredienteId = null) {
         this.ingredienteEditando = ingredienteId;
         const modalTitle = document.getElementById('ingredienteModalTitle');
-        modalTitle.innerHTML = ingredienteId ? '✏️ Editar Ingrediente' : '➕ Ingrediente';
         
         this.limparFormIngrediente();
         
-        if (ingredienteId && this.events[this.selectedDay].ingredientes) {
-            const ingrediente = this.events[this.selectedDay].ingredientes.find(i => i.id === ingredienteId);
+        if (ingredienteId) {
+            modalTitle.innerHTML = '✏️ Editar Ingrediente';
+            
+            const ingrediente = this.events[this.selectedDay].ingredientes.find(i => String(i.id) === String(ingredienteId));
+            
             if (ingrediente) {
-                document.getElementById('ingredienteEditId').value = ingrediente.id;
-                document.getElementById('ingredienteNome').value = ingrediente.nome;
-                document.getElementById('ingredienteQtd').value = ingrediente.quantidade;
-                document.getElementById('ingredienteUnidade').value = ingrediente.unidade;
-                document.getElementById('ingredienteValor').value = ingrediente.valorTotal;
+                document.getElementById('ingredienteEditId').value = ingrediente.id || '';
+                document.getElementById('ingredienteNome').value = ingrediente.nome || '';
+                document.getElementById('ingredienteQtd').value = ingrediente.quantidade || '';
+                document.getElementById('ingredienteUnidade').value = ingrediente.unidade || 'un';
+                document.getElementById('ingredienteValor').value = ingrediente.valorTotal || '';
                 document.getElementById('ingredienteComprado').checked = ingrediente.comprado || false;
                 document.getElementById('ingredienteDoacao').checked = ingrediente.doacao || false;
-                document.getElementById('ingredienteComprovanteId').value = ingrediente.comprovanteId || '';
+                
+                if (ingrediente.comprovanteId) {
+                    document.getElementById('ingredienteComprovanteId').value = ingrediente.comprovanteId;
+                }
             }
+        } else {
+            modalTitle.innerHTML = '➕ Ingrediente';
         }
         
-        // Atualizar lista de comprovantes no select
         this.atualizarSelectComprovantes();
-        
         document.getElementById('formIngrediente').classList.remove('hidden');
     },
 
@@ -373,11 +374,10 @@ const App = {
         comprovantes.forEach(comp => {
             const option = document.createElement('option');
             option.value = comp.id;
-            option.textContent = `${comp.nome} (R$ ${comp.valorTotal.toFixed(2)})`;
+            option.textContent = `${comp.nome} (R$ ${(comp.valorTotal || 0).toFixed(2)})`;
             select.appendChild(option);
         });
         
-        // Mostrar select apenas se houver comprovantes
         const container = document.getElementById('comprovanteSelectContainer');
         if (container) {
             container.style.display = comprovantes.length > 0 ? 'block' : 'none';
@@ -387,6 +387,7 @@ const App = {
     cancelarFormIngrediente() {
         document.getElementById('formIngrediente').classList.add('hidden');
         this.ingredienteEditando = null;
+        this.limparFormIngrediente();
     },
 
     limparFormIngrediente() {
@@ -399,7 +400,6 @@ const App = {
         document.getElementById('ingredienteDoacao').checked = false;
         document.getElementById('ingredienteComprovanteId').value = '';
         
-        // Limpar preview da imagem
         const preview = document.getElementById('previewImage');
         if (preview) {
             preview.src = '#';
@@ -429,34 +429,29 @@ const App = {
             return;
         }
 
-        if (!doacao && valorTotal <= 0) {
-            alert('Digite o valor total!');
-            return;
-        }
-
         if (!this.events[this.selectedDay].ingredientes) {
             this.events[this.selectedDay].ingredientes = [];
         }
 
         const ingrediente = {
-            id,
-            nome,
-            quantidade,
-            unidade,
-            valorTotal,
-            comprado,
-            doacao,
-            comprovanteId
+            id: id,
+            nome: nome,
+            quantidade: quantidade,
+            unidade: unidade,
+            valorTotal: valorTotal,
+            comprado: comprado,
+            doacao: doacao,
+            comprovanteId: comprovanteId
         };
 
         if (this.ingredienteEditando) {
-            // Editar existente
-            const index = this.events[this.selectedDay].ingredientes.findIndex(i => i.id === this.ingredienteEditando);
+            const index = this.events[this.selectedDay].ingredientes.findIndex(i => String(i.id) === String(this.ingredienteEditando));
             if (index !== -1) {
                 this.events[this.selectedDay].ingredientes[index] = ingrediente;
+            } else {
+                this.events[this.selectedDay].ingredientes.push(ingrediente);
             }
         } else {
-            // Adicionar novo
             this.events[this.selectedDay].ingredientes.push(ingrediente);
         }
 
@@ -471,33 +466,49 @@ const App = {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
         const ingredientes = this.events[this.selectedDay].ingredientes || [];
+        const comprovantes = this.events[this.selectedDay].comprovantes || [];
         let html = '';
 
-        ingredientes.sort((a, b) => a.nome.localeCompare(b.nome));
+        ingredientes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
         ingredientes.forEach((item) => {
+            const itemId = item.id || Date.now() + Math.random();
             const compradoClass = item.comprado ? 'comprado' : '';
             const compradoText = item.comprado ? '✅' : '⏳';
             
+            const valorDisplay = item.valorTotal > 0 ? `R$ ${item.valorTotal.toFixed(2)}` : '💰 A definir';
+            
+            const temComprovante = item.comprovanteId ? true : false;
+            const comprovante = temComprovante ? comprovantes.find(c => String(c.id) === String(item.comprovanteId)) : null;
+            
             html += `
-                <div class="item-card ${compradoClass}" style="${item.comprado ? 'opacity: 0.7;' : ''}">
+                <div class="item-card ${compradoClass}" data-id="${itemId}" style="${item.comprado ? 'opacity: 0.8;' : ''}">
                     <div class="item-info">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="item-name">${item.nome}</span>
-                            ${item.doacao ? '<span class="item-badge">🎁</span>' : ''}
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span class="item-name">${item.nome || 'Sem nome'}</span>
+                            ${item.doacao ? '<span class="item-badge">🎁 Doação</span>' : ''}
                             ${item.comprado ? '<span class="item-badge" style="background: var(--success);">✓ Comprado</span>' : ''}
+                            ${item.valorTotal === 0 && !item.doacao ? '<span class="item-badge" style="background: var(--warning);">⏳ Pendente</span>' : ''}
+                            ${temComprovante ? '<span class="item-badge" style="background: var(--primary);">📎 Comprovante</span>' : ''}
                         </div>
-                        <span class="item-details">${item.quantidade} ${item.unidade} • R$ ${item.valorTotal.toFixed(2)}</span>
-                        ${item.comprovanteId ? '<span class="item-details" style="color: var(--primary);">📎 Com comprovante</span>' : ''}
+                        <span class="item-details">${item.quantidade || 0} ${item.unidade || 'un'} • ${valorDisplay}</span>
+                        ${temComprovante ? `
+                            <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+                                <span class="item-details" style="color: var(--primary);">📎 ${comprovante?.nome || 'Comprovante'}</span>
+                                <button class="btn-icon" style="background: var(--primary); width: 24px; height: 24px; font-size: 0.8rem;" onclick="app.verComprovanteDoIngrediente('${item.comprovanteId}')" title="Ver comprovante">
+                                    👁️
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <button class="btn-icon" style="background: var(--success);" onclick="app.toggleCompradoIngrediente('${item.id}')" title="Marcar como comprado">
+                        <button class="btn-icon" style="background: var(--success);" onclick="app.toggleCompradoIngrediente('${itemId}')" title="Marcar como comprado">
                             ${compradoText}
                         </button>
-                        <button class="btn-icon" style="background: var(--primary);" onclick="app.mostrarFormIngrediente('${item.id}')" title="Editar">
+                        <button class="btn-icon" style="background: var(--primary);" onclick="app.mostrarFormIngrediente('${itemId}')" title="Editar">
                             ✏️
                         </button>
-                        <button class="btn-icon" style="background: var(--danger);" onclick="app.removerIngrediente('${item.id}')" title="Remover">
+                        <button class="btn-icon" style="background: var(--danger);" onclick="app.removerIngrediente('${itemId}')" title="Remover">
                             🗑️
                         </button>
                     </div>
@@ -508,8 +519,15 @@ const App = {
         document.getElementById('ingredientesList').innerHTML = html || '<div style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum ingrediente</div>';
     },
 
+    verComprovanteDoIngrediente(comprovanteId) {
+        if (!comprovanteId) return;
+        
+        const comprovante = this.events[this.selectedDay].comprovantes.find(c => String(c.id) === String(comprovanteId));
+        this.mostrarComprovanteEmJanela(comprovante);
+    },
+
     async toggleCompradoIngrediente(id) {
-        const ingrediente = this.events[this.selectedDay].ingredientes.find(i => i.id == id);
+        const ingrediente = this.events[this.selectedDay].ingredientes.find(i => String(i.id) === String(id));
         if (ingrediente) {
             ingrediente.comprado = !ingrediente.comprado;
             this.atualizarListaIngredientes();
@@ -519,7 +537,7 @@ const App = {
 
     async removerIngrediente(id) {
         if (confirm('Remover este ingrediente?')) {
-            this.events[this.selectedDay].ingredientes = this.events[this.selectedDay].ingredientes.filter(i => i.id != id);
+            this.events[this.selectedDay].ingredientes = this.events[this.selectedDay].ingredientes.filter(i => String(i.id) !== String(id));
             this.atualizarListaIngredientes();
             this.atualizarListaComprovantes();
             this.atualizarResumoEvento();
@@ -527,16 +545,17 @@ const App = {
         }
     },
 
-    // ========== COMPROVANTES ==========
     mostrarFormComprovante(comprovanteId = null) {
         this.comprovanteEditando = comprovanteId;
+        this.ingredientesSelecionados = [];
+        
         this.limparFormComprovante();
         
-        if (comprovanteId && this.events[this.selectedDay].comprovantes) {
-            const comprovante = this.events[this.selectedDay].comprovantes.find(c => c.id === comprovanteId);
+        if (comprovanteId) {
+            const comprovante = this.events[this.selectedDay].comprovantes.find(c => String(c.id) === String(comprovanteId));
             if (comprovante) {
                 document.getElementById('comprovanteEditId').value = comprovante.id;
-                document.getElementById('comprovanteNome').value = comprovante.nome;
+                document.getElementById('comprovanteNome').value = comprovante.nome || '';
                 document.getElementById('comprovanteData').value = comprovante.data || '';
                 document.getElementById('comprovanteValor').value = comprovante.valorTotal || 0;
                 
@@ -545,18 +564,80 @@ const App = {
                     preview.src = comprovante.imagem;
                     preview.style.display = 'block';
                 }
+                
+                const ingredientes = this.events[this.selectedDay].ingredientes || [];
+                this.ingredientesSelecionados = ingredientes
+                    .filter(i => String(i.comprovanteId) === String(comprovante.id))
+                    .map(i => String(i.id));
             }
         }
         
-        // Atualizar lista de itens vinculados
-        this.atualizarListaItensComprovante();
-        
+        this.atualizarListaIngredientesParaComprovante();
         document.getElementById('formComprovante').classList.remove('hidden');
+    },
+
+    atualizarListaIngredientesParaComprovante() {
+        const container = document.getElementById('comprovanteItensList');
+        if (!container) return;
+        
+        const ingredientes = this.events[this.selectedDay]?.ingredientes || [];
+        
+        if (ingredientes.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 10px;">Nenhum ingrediente cadastrado</p>';
+            return;
+        }
+        
+        let html = '';
+        
+        ingredientes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+        
+        ingredientes.forEach(item => {
+            const itemId = String(item.id);
+            const estaSelecionado = this.ingredientesSelecionados.includes(itemId);
+            const valorDisplay = item.valorTotal > 0 ? `R$ ${item.valorTotal.toFixed(2)}` : '💰 A definir';
+            
+            html += `
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--border); background: ${estaSelecionado ? 'rgba(249, 115, 22, 0.1)' : 'transparent'};">
+                    <input type="checkbox" 
+                           id="ingrediente_${itemId}" 
+                           value="${itemId}"
+                           ${estaSelecionado ? 'checked' : ''}
+                           onchange="app.toggleIngredienteComprovante('${itemId}')"
+                           style="width: 20px; height: 20px; cursor: pointer;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600;">${item.nome}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-light);">${item.quantidade} ${item.unidade} • ${valorDisplay}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    },
+
+    toggleIngredienteComprovante(ingredienteId) {
+        const index = this.ingredientesSelecionados.indexOf(String(ingredienteId));
+        if (index === -1) {
+            this.ingredientesSelecionados.push(String(ingredienteId));
+        } else {
+            this.ingredientesSelecionados.splice(index, 1);
+        }
+        
+        const checkbox = document.getElementById(`ingrediente_${ingredienteId}`);
+        if (checkbox) {
+            checkbox.checked = (index === -1);
+            const itemDiv = checkbox.closest('div[style*="display: flex"]');
+            if (itemDiv) {
+                itemDiv.style.background = (index === -1) ? 'rgba(249, 115, 22, 0.1)' : 'transparent';
+            }
+        }
     },
 
     cancelarFormComprovante() {
         document.getElementById('formComprovante').classList.add('hidden');
         this.comprovanteEditando = null;
+        this.ingredientesSelecionados = [];
+        this.limparFormComprovante();
     },
 
     limparFormComprovante() {
@@ -569,27 +650,6 @@ const App = {
         const preview = document.getElementById('previewImage');
         preview.src = '#';
         preview.style.display = 'none';
-    },
-
-    atualizarListaItensComprovante() {
-        const container = document.getElementById('comprovanteItensList');
-        if (!container) return;
-        
-        const comprovanteId = this.comprovanteEditando;
-        const ingredientes = this.events[this.selectedDay]?.ingredientes || [];
-        
-        let html = '';
-        ingredientes.forEach(item => {
-            const vinculado = item.comprovanteId == comprovanteId;
-            html += `
-                <div style="display: flex; align-items: center; gap: 8px; padding: 4px; background: ${vinculado ? 'var(--primary-light)' : 'transparent'}; border-radius: 4px; margin-bottom: 4px;">
-                    <span style="flex: 1;">${item.nome} - R$ ${item.valorTotal.toFixed(2)}</span>
-                    ${vinculado ? '<span style="color: var(--success);">✓</span>' : ''}
-                </div>
-            `;
-        });
-        
-        container.innerHTML = html || '<p>Nenhum item cadastrado</p>';
     },
 
     async salvarComprovante() {
@@ -625,11 +685,11 @@ const App = {
             data,
             valorTotal,
             imagem: imagem || (this.comprovanteEditando ? 
-                this.events[this.selectedDay].comprovantes.find(c => c.id === this.comprovanteEditando)?.imagem : null)
+                this.events[this.selectedDay].comprovantes.find(c => String(c.id) === String(this.comprovanteEditando))?.imagem : null)
         };
 
         if (this.comprovanteEditando) {
-            const index = this.events[this.selectedDay].comprovantes.findIndex(c => c.id === this.comprovanteEditando);
+            const index = this.events[this.selectedDay].comprovantes.findIndex(c => String(c.id) === String(this.comprovanteEditando));
             if (index !== -1) {
                 this.events[this.selectedDay].comprovantes[index] = comprovante;
             }
@@ -637,9 +697,27 @@ const App = {
             this.events[this.selectedDay].comprovantes.push(comprovante);
         }
 
+        if (this.events[this.selectedDay].ingredientes) {
+            if (this.comprovanteEditando) {
+                this.events[this.selectedDay].ingredientes.forEach(item => {
+                    if (String(item.comprovanteId) === String(this.comprovanteEditando)) {
+                        item.comprovanteId = null;
+                    }
+                });
+            }
+            
+            this.events[this.selectedDay].ingredientes.forEach(item => {
+                if (this.ingredientesSelecionados.includes(String(item.id))) {
+                    item.comprovanteId = id;
+                }
+            });
+        }
+
         this.cancelarFormComprovante();
+        this.atualizarListaIngredientes();
         this.atualizarListaComprovantes();
         this.atualizarSelectComprovantes();
+        this.atualizarResumoEvento();
         await this.salvarDados();
     },
 
@@ -647,19 +725,36 @@ const App = {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
         const comprovantes = this.events[this.selectedDay].comprovantes || [];
+        const ingredientes = this.events[this.selectedDay].ingredientes || [];
         let html = '';
 
-        comprovantes.forEach((comp, index) => {
-            // Contar itens vinculados
-            const itensVinculados = (this.events[this.selectedDay].ingredientes || [])
-                .filter(i => i.comprovanteId == comp.id).length;
+        comprovantes.forEach((comp) => {
+            const itensVinculados = ingredientes
+                .filter(i => String(i.comprovanteId) === String(comp.id));
+            
+            const totalItens = itensVinculados.length;
+            const totalValorItens = itensVinculados.reduce((acc, item) => acc + (item.valorTotal || 0), 0);
+            
+            const itensList = itensVinculados.map(item => 
+                `<div style="font-size: 0.7rem; color: var(--text-light); margin-left: 10px;">• ${item.nome} - R$ ${(item.valorTotal || 0).toFixed(2)}</div>`
+            ).join('');
             
             html += `
                 <div class="item-card" style="border-left-color: var(--success);">
                     <div class="item-info">
-                        <span class="item-name">📎 ${comp.nome}</span>
-                        <span class="item-details">${comp.data || 'Sem data'} • R$ ${comp.valorTotal.toFixed(2)}</span>
-                        <span class="item-details">${itensVinculados} itens vinculados</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="item-name">📎 ${comp.nome}</span>
+                            <span class="item-badge" style="background: var(--primary);">${totalItens} itens</span>
+                        </div>
+                        <span class="item-details">${comp.data || 'Sem data'} • R$ ${(comp.valorTotal || 0).toFixed(2)}</span>
+                        <span class="item-details">Valor nos itens: R$ ${totalValorItens.toFixed(2)}</span>
+                        
+                        ${totalItens > 0 ? `
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);">
+                                <div style="font-weight: 600; font-size: 0.8rem; margin-bottom: 4px;">Itens neste comprovante:</div>
+                                ${itensList}
+                            </div>
+                        ` : ''}
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <button class="btn-icon" style="background: var(--primary);" onclick="app.verComprovante('${comp.id}')" title="Ver">
@@ -680,36 +775,119 @@ const App = {
     },
 
     verComprovante(id) {
-        const comprovante = this.events[this.selectedDay].comprovantes.find(c => c.id == id);
-        if (comprovante?.imagem) {
-            // Abrir modal com imagem
-            const win = window.open();
-            win.document.write(`
-                <html>
-                    <head><title>${comprovante.nome}</title></head>
-                    <body style="margin:0; display:flex; align-items:center; justify-content:center; background:#f0f0f0;">
-                        <img src="${comprovante.imagem}" style="max-width:100%; max-height:100vh; object-fit:contain;">
-                    </body>
-                </html>
-            `);
-        } else {
+        const comprovante = this.events[this.selectedDay].comprovantes.find(c => String(c.id) === String(id));
+        this.mostrarComprovanteEmJanela(comprovante);
+    },
+
+    mostrarComprovanteEmJanela(comprovante) {
+        if (!comprovante?.imagem) {
             alert('Este comprovante não possui imagem!');
+            return;
         }
+        
+        const ingredientes = this.events[this.selectedDay].ingredientes || [];
+        const itensVinculados = ingredientes.filter(i => String(i.comprovanteId) === String(comprovante.id));
+        
+        const win = window.open();
+        win.document.write(`
+            <html>
+                <head>
+                    <title>${comprovante.nome}</title>
+                    <style>
+                        body {
+                            margin: 0;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            min-height: 100vh;
+                            background: #f0f0f0;
+                            font-family: Arial, sans-serif;
+                            padding: 20px;
+                        }
+                        .container {
+                            max-width: 90%;
+                            background: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        }
+                        .header {
+                            margin-bottom: 20px;
+                            padding-bottom: 10px;
+                            border-bottom: 1px solid #eee;
+                        }
+                        .header h2 {
+                            margin: 0;
+                            color: #f97316;
+                        }
+                        .header p {
+                            margin: 5px 0 0;
+                            color: #666;
+                        }
+                        .itens-list {
+                            margin: 20px 0;
+                            padding: 15px;
+                            background: #f9f9f9;
+                            border-radius: 8px;
+                        }
+                        .itens-list h3 {
+                            margin: 0 0 10px 0;
+                            font-size: 1rem;
+                            color: #333;
+                        }
+                        .itens-list ul {
+                            margin: 0;
+                            padding-left: 20px;
+                        }
+                        .itens-list li {
+                            margin-bottom: 5px;
+                        }
+                        img {
+                            max-width: 100%;
+                            max-height: 60vh;
+                            object-fit: contain;
+                            border-radius: 8px;
+                            margin-top: 15px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h2>📎 ${comprovante.nome}</h2>
+                            <p>Data: ${comprovante.data || 'Não informada'} • Valor Total: R$ ${(comprovante.valorTotal || 0).toFixed(2)}</p>
+                        </div>
+                        
+                        ${itensVinculados.length > 0 ? `
+                            <div class="itens-list">
+                                <h3>🛒 Itens neste comprovante:</h3>
+                                <ul>
+                                    ${itensVinculados.map(item => 
+                                        `<li>${item.nome} - ${item.quantidade} ${item.unidade} - R$ ${(item.valorTotal || 0).toFixed(2)}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        
+                        <img src="${comprovante.imagem}" alt="Comprovante">
+                    </div>
+                </body>
+            </html>
+        `);
     },
 
     async removerComprovante(id) {
         if (confirm('Remover este comprovante? Os itens vinculados serão desvinculados.')) {
-            // Desvincular itens
             if (this.events[this.selectedDay].ingredientes) {
                 this.events[this.selectedDay].ingredientes.forEach(item => {
-                    if (item.comprovanteId == id) {
+                    if (String(item.comprovanteId) === String(id)) {
                         item.comprovanteId = null;
                     }
                 });
             }
             
-            // Remover comprovante
-            this.events[this.selectedDay].comprovantes = this.events[this.selectedDay].comprovantes.filter(c => c.id != id);
+            this.events[this.selectedDay].comprovantes = this.events[this.selectedDay].comprovantes.filter(c => String(c.id) !== String(id));
             
             this.atualizarListaIngredientes();
             this.atualizarListaComprovantes();
@@ -718,7 +896,6 @@ const App = {
         }
     },
 
-    // ========== VENDAS ==========
     mostrarFormVenda() {
         document.getElementById('formVenda').classList.remove('hidden');
         this.limparFormVenda();
@@ -801,7 +978,7 @@ const App = {
         };
 
         if (this.vendaEditando) {
-            const index = this.events[this.selectedDay].vendas.findIndex(v => v.id === this.vendaEditando);
+            const index = this.events[this.selectedDay].vendas.findIndex(v => String(v.id) === String(this.vendaEditando));
             if (index !== -1) {
                 this.events[this.selectedDay].vendas[index] = venda;
             }
@@ -821,14 +998,14 @@ const App = {
         const vendas = this.events[this.selectedDay].vendas || [];
         let html = '';
 
-        vendas.sort((a, b) => a.cliente.localeCompare(b.cliente));
+        vendas.sort((a, b) => (a.cliente || '').localeCompare(b.cliente || ''));
 
         vendas.forEach((venda) => {
             const valorTotal = venda.quantidade * venda.valorUnit;
             const pendente = valorTotal - (venda.valorPago || 0);
 
             html += `
-                <div class="venda-card">
+                <div class="venda-card" data-id="${venda.id}">
                     <div class="venda-header">
                         <span class="cliente-nome">${venda.cliente}</span>
                         <span class="entrega-badge ${venda.entrega}">${venda.entrega === 'sim' ? '✅ Entregue' : '⏳ Pendente'}</span>
@@ -842,7 +1019,7 @@ const App = {
                         <div>Total:<br><strong>R$ ${valorTotal.toFixed(2)}</strong></div>
                         <div>Pago:<br><strong>R$ ${(venda.valorPago || 0).toFixed(2)}</strong></div>
                         <div>Falta:<br><strong class="${pendente > 0 ? 'warning' : 'success'}">R$ ${pendente.toFixed(2)}</strong></div>
-                        <div>Forma:<br><strong>${venda.formaPagamento.replace('_', ' ')}</strong></div>
+                        <div>Forma:<br><strong>${venda.formaPagamento?.replace('_', ' ') || ''}</strong></div>
                     </div>
                     
                     <div class="venda-actions">
@@ -858,9 +1035,11 @@ const App = {
         document.getElementById('vendasList').innerHTML = html || '<div style="text-align: center; padding: 30px; color: var(--text-light);">Nenhuma venda</div>';
     },
 
-    async abrirPagamento(id) {
+    abrirPagamento(id) {
         this.pagamentoVendaId = id;
-        const venda = this.events[this.selectedDay].vendas.find(v => v.id == id);
+        const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+        if (!venda) return;
+        
         const total = venda.quantidade * venda.valorUnit;
         const pendente = total - (venda.valorPago || 0);
         
@@ -886,7 +1065,9 @@ const App = {
             return;
         }
 
-        const venda = this.events[this.selectedDay].vendas.find(v => v.id == this.pagamentoVendaId);
+        const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(this.pagamentoVendaId));
+        if (!venda) return;
+        
         const total = venda.quantidade * venda.valorUnit;
         const novoPago = (venda.valorPago || 0) + valor;
 
@@ -906,14 +1087,15 @@ const App = {
 
     editarVenda(id) {
         this.vendaEditando = id;
-        const venda = this.events[this.selectedDay].vendas.find(v => v.id == id);
+        const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+        if (!venda) return;
         
-        document.getElementById('vendaCliente').value = venda.cliente;
-        document.getElementById('vendaProduto').value = venda.produto;
-        document.getElementById('vendaQtd').value = venda.quantidade;
-        document.getElementById('vendaValorUnit').value = venda.valorUnit;
+        document.getElementById('vendaCliente').value = venda.cliente || '';
+        document.getElementById('vendaProduto').value = venda.produto || '';
+        document.getElementById('vendaQtd').value = venda.quantidade || 1;
+        document.getElementById('vendaValorUnit').value = venda.valorUnit || 0;
         document.getElementById('vendaTotal').value = (venda.quantidade * venda.valorUnit).toFixed(2);
-        document.getElementById('vendaFormaPagamento').value = venda.formaPagamento;
+        document.getElementById('vendaFormaPagamento').value = venda.formaPagamento || 'dinheiro';
         document.getElementById('vendaValorPago').value = venda.valorPago || 0;
         document.getElementById('vendaEntrega').value = venda.entrega || 'nao';
         document.getElementById('vendaObs').value = venda.observacoes || '';
@@ -924,14 +1106,13 @@ const App = {
 
     async removerVenda(id) {
         if (confirm('Remover esta venda?')) {
-            this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => v.id != id);
+            this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => String(v.id) !== String(id));
             this.atualizarListaVendas();
             this.atualizarResumoEvento();
             await this.salvarDados();
         }
     },
 
-    // ========== RELATÓRIOS ==========
     atualizarRelatorioEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
@@ -940,11 +1121,12 @@ const App = {
         const vendas = evento.vendas || [];
         const comprovantes = evento.comprovantes || [];
         
-        const totalCustos = ingredientes.reduce((acc, item) => acc + (item.doacao ? 0 : item.valorTotal), 0);
+        const totalCustos = ingredientes.reduce((acc, item) => acc + (item.doacao ? 0 : (item.valorTotal || 0)), 0);
         const totalComprado = ingredientes
-            .filter(item => item.comprado && !item.doacao)
-            .reduce((acc, item) => acc + item.valorTotal, 0);
+            .filter(item => item.comprado && !item.doacao && item.valorTotal > 0)
+            .reduce((acc, item) => acc + (item.valorTotal || 0), 0);
         const itensComprados = ingredientes.filter(item => item.comprado).length;
+        const itensSemValor = ingredientes.filter(item => (item.valorTotal === 0 || !item.valorTotal) && !item.doacao).length;
         
         let totalVendas = 0;
         let totalRecebido = 0;
@@ -988,9 +1170,13 @@ const App = {
         document.getElementById('relItensComprados').innerHTML = itensComprados;
         document.getElementById('relTotalComprovantes').innerHTML = comprovantes.length;
         document.getElementById('relTotalComprado').innerHTML = `R$ ${totalComprado.toFixed(2)}`;
+        
+        let semValorRow = document.getElementById('relItensSemValor');
+        if (semValorRow) {
+            semValorRow.querySelector('.report-value').innerHTML = itensSemValor;
+        }
     },
 
-    // ========== NAVEGAÇÃO ==========
     async excluirEvento() {
         if (!this.selectedDay) return;
         
@@ -1054,7 +1240,7 @@ const App = {
             }
             if (evento.ingredientes) {
                 evento.ingredientes.forEach(ing => {
-                    if (!ing.doacao) totalCustos += ing.valorTotal;
+                    if (!ing.doacao) totalCustos += ing.valorTotal || 0;
                 });
             }
         });
