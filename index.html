@@ -124,8 +124,28 @@
 
             <!-- Aba Custos -->
             <div id="tabCustos" class="tab-pane">
-                <div class="section-header">
-                    <h3>Ingredientes</h3>
+                <!-- Seção de Produção -->
+                <div class="producao-section">
+                    <div class="section-header">
+                        <h3>🍽️ Produção</h3>
+                        <button class="btn btn-primary btn-sm" onclick="app.mostrarFormProducao()">
+                            <span>+</span> Adicionar Prato
+                        </button>
+                    </div>
+                    
+                    <div id="producaoList" class="compact-list"></div>
+                    
+                    <!-- Resumo da Produção -->
+                    <div class="summary-card" style="margin: 16px 0; background: var(--primary);">
+                        <div class="summary-row">
+                            <span>📦 Total de Itens para Venda:</span>
+                            <span class="summary-value" id="totalItensProducao">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-header" style="margin-top: 20px;">
+                    <h3>🛒 Ingredientes</h3>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-primary btn-sm" onclick="app.mostrarFormIngrediente()">
                             <span>+</span>
@@ -144,6 +164,38 @@
                         <h4>📎 Comprovantes</h4>
                     </div>
                     <div id="comprovantesList" class="compact-list"></div>
+                </div>
+                
+                <!-- Formulário Produção -->
+                <div id="formProducao" class="modal-overlay hidden">
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3>➕ Adicionar Prato</h3>
+                            <button class="close-btn" onclick="app.cancelarFormProducao()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="producaoEditId" value="">
+                            
+                            <div class="form-group">
+                                <label>Nome do Prato</label>
+                                <input type="text" id="producaoNome" class="form-control" placeholder="Ex: Cachorro Quente">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Quantidade Produzida</label>
+                                <input type="number" id="producaoQuantidade" class="form-control" placeholder="0" value="0" min="0">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Valor de Venda (R$)</label>
+                                <input type="number" id="producaoValor" class="form-control" placeholder="0,00" step="0.01">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline" onclick="app.cancelarFormProducao()">Cancelar</button>
+                            <button class="btn btn-primary" onclick="app.salvarProducao()">Salvar</button>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Formulário Ingrediente -->
@@ -244,6 +296,26 @@
 
             <!-- Aba Vendas -->
             <div id="tabVendas" class="tab-pane active">
+                <!-- Cards de Resumo Financeiro -->
+                <div class="summary-cards">
+                    <div class="stat-card">
+                        <span class="stat-label">Vendas Hoje</span>
+                        <span class="stat-value" id="resumoVendasHoje">R$ 0,00</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Total Geral</span>
+                        <span class="stat-value profit" id="resumoVendasGeral">R$ 0,00</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Recebido</span>
+                        <span class="stat-value success" id="resumoRecebidoGeral">R$ 0,00</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Líquido</span>
+                        <span class="stat-value" id="resumoLiquido">R$ 0,00</span>
+                    </div>
+                </div>
+
                 <!-- Botão Nova Venda -->
                 <button class="btn btn-primary btn-block" onclick="app.mostrarFormVenda()">
                     <span>➕</span> Nova Venda
@@ -261,21 +333,33 @@
                         </div>
                         <div class="modal-body">
                             <input type="text" id="vendaCliente" class="form-control" placeholder="Cliente">
-                            <input type="text" id="vendaProduto" class="form-control" placeholder="Produto" style="margin-top: 10px;">
                             
-                            <div class="row" style="margin-top: 10px;">
-                                <input type="number" id="vendaQtd" class="form-control col" placeholder="Qtd" value="1">
-                                <input type="number" id="vendaValorUnit" class="form-control col" placeholder="R$ unit" step="0.01">
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label>Produto</label>
+                                <select id="vendaProdutoId" class="form-control">
+                                    <option value="">Selecione um prato</option>
+                                </select>
                             </div>
                             
                             <div class="row" style="margin-top: 10px;">
                                 <div class="col">
-                                    <label style="font-size: 0.8rem;">Total</label>
-                                    <input type="number" id="vendaTotal" class="form-control" readonly>
+                                    <label style="font-size: 0.8rem;">Disponível</label>
+                                    <input type="text" id="vendaDisponivel" class="form-control" readonly>
                                 </div>
                                 <div class="col">
-                                    <label style="font-size: 0.8rem;">Valor Pago</label>
-                                    <input type="number" id="vendaValorPago" class="form-control" step="0.01">
+                                    <label style="font-size: 0.8rem;">Quantidade</label>
+                                    <input type="number" id="vendaQtd" class="form-control" value="1" min="1">
+                                </div>
+                            </div>
+                            
+                            <div class="row" style="margin-top: 10px;">
+                                <div class="col">
+                                    <label style="font-size: 0.8rem;">Valor Unit.</label>
+                                    <input type="number" id="vendaValorUnit" class="form-control" step="0.01" readonly>
+                                </div>
+                                <div class="col">
+                                    <label style="font-size: 0.8rem;">Total</label>
+                                    <input type="number" id="vendaTotal" class="form-control" readonly>
                                 </div>
                             </div>
                             
@@ -292,11 +376,18 @@
                                 </select>
                             </div>
                             
-                            <textarea id="vendaObs" class="form-control" placeholder="Obs" rows="2" style="margin-top: 10px;"></textarea>
-                            
-                            <div class="info-box" style="margin-top: 10px;" id="vendaPendenteBox">
-                                Pendente: <strong id="vendaPendente">R$ 0,00</strong>
+                            <div class="row" style="margin-top: 10px;">
+                                <div class="col">
+                                    <label style="font-size: 0.8rem;">Valor Pago</label>
+                                    <input type="number" id="vendaValorPago" class="form-control" step="0.01">
+                                </div>
+                                <div class="col">
+                                    <label style="font-size: 0.8rem;">Pendente</label>
+                                    <input type="text" id="vendaPendente" class="form-control" readonly>
+                                </div>
                             </div>
+                            
+                            <textarea id="vendaObs" class="form-control" placeholder="Obs" rows="2" style="margin-top: 10px;"></textarea>
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn-outline" onclick="app.cancelarFormVenda()">Cancelar</button>
@@ -356,6 +447,22 @@
                     </div>
 
                     <div class="report-section">
+                        <h4>Produção</h4>
+                        <div class="report-row">
+                            <span>🍽️ Itens Produzidos:</span>
+                            <span class="report-value" id="relItensProduzidos">0</span>
+                        </div>
+                        <div class="report-row">
+                            <span>📦 Itens Vendidos:</span>
+                            <span class="report-value" id="relItensVendidos">0</span>
+                        </div>
+                        <div class="report-row">
+                            <span>⏳ Itens Restantes:</span>
+                            <span class="report-value warning" id="relItensRestantes">0</span>
+                        </div>
+                    </div>
+
+                    <div class="report-section">
                         <h4>Formas de Pagamento</h4>
                         <div class="report-row">
                             <span>💵 Dinheiro:</span>
@@ -387,10 +494,6 @@
                         <div class="report-row">
                             <span>🚚 Entregues:</span>
                             <span class="report-value" id="relEntregues">0</span>
-                        </div>
-                        <div class="report-row">
-                            <span>📦 Total de Itens Vendidos:</span>
-                            <span class="report-value" id="relItens">0</span>
                         </div>
                     </div>
                     

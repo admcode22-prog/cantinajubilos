@@ -16,6 +16,7 @@ const App = {
     vendaEditando: null,
     pagamentoVendaId: null,
     ingredienteEditando: null,
+    producaoEditando: null,
     comprovanteEditando: null,
     carregando: false,
     ingredientesSelecionados: [],
@@ -27,12 +28,12 @@ const App = {
         this.gerarCalendario();
         
         const vendaQtd = document.getElementById('vendaQtd');
-        const vendaValorUnit = document.getElementById('vendaValorUnit');
+        const vendaProdutoId = document.getElementById('vendaProdutoId');
         const vendaValorPago = document.getElementById('vendaValorPago');
         const comprovanteImagem = document.getElementById('comprovanteImagem');
         
         if (vendaQtd) vendaQtd.addEventListener('input', () => this.calcularTotalVenda());
-        if (vendaValorUnit) vendaValorUnit.addEventListener('input', () => this.calcularTotalVenda());
+        if (vendaProdutoId) vendaProdutoId.addEventListener('change', () => this.carregarDadosProduto());
         if (vendaValorPago) vendaValorPago.addEventListener('input', () => this.calcularPendenteVenda());
         if (comprovanteImagem) comprovanteImagem.addEventListener('change', (e) => this.previewImagem(e));
         
@@ -156,6 +157,9 @@ const App = {
         
         await this.salvarEventoNoSupabase(data, evento);
         localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
+        
+        // Atualizar totais gerais
+        this.atualizarTotaisGerais();
     },
 
     atualizarHeader() {
@@ -218,51 +222,51 @@ const App = {
     },
 
     async abrirDia(dataKey) {
-    this.selectedDay = dataKey;
-    
-    if (!this.events[dataKey]) {
-        this.events[dataKey] = {
-            eventName: '',
-            responsible: '',
-            notes: '',
-            ingredientes: [],
-            vendas: [],
-            comprovantes: []
-        };
+        this.selectedDay = dataKey;
         
-        await this.salvarEventoNoSupabase(dataKey, this.events[dataKey]);
-    }
+        if (!this.events[dataKey]) {
+            this.events[dataKey] = {
+                eventName: '',
+                responsible: '',
+                notes: '',
+                producao: [],
+                ingredientes: [],
+                vendas: [],
+                comprovantes: []
+            };
+            
+            await this.salvarEventoNoSupabase(dataKey, this.events[dataKey]);
+        }
 
-    const [ano, mes, dia] = dataKey.split('-');
-    document.getElementById('selectedDate').innerHTML = `📅 ${dia}/${mes}/${ano}`;
-    
-    this.carregarDadosEvento();
-    
-    document.getElementById('calendarSection').classList.add('hidden');
-    document.getElementById('managementSection').classList.remove('hidden');
-    
-    // Garantir que a aba Evento fique ativa
-    this.mudarAba('evento');
-},
+        const [ano, mes, dia] = dataKey.split('-');
+        document.getElementById('selectedDate').innerHTML = `📅 ${dia}/${mes}/${ano}`;
+        
+        this.carregarDadosEvento();
+        
+        document.getElementById('calendarSection').classList.add('hidden');
+        document.getElementById('managementSection').classList.remove('hidden');
+        this.mudarAba('evento');
+    },
 
     carregarDadosEvento() {
-    if (!this.selectedDay || !this.events[this.selectedDay]) return;
+        if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
-    const evento = this.events[this.selectedDay];
-    
-    document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Novo Evento';
-    document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Clique para editar'}`;
-    
-    // Atualizar campos da aba evento
-    document.getElementById('eventName').value = evento.eventName || '';
-    document.getElementById('responsible').value = evento.responsible || '';
-    document.getElementById('notes').value = evento.notes || '';
-    
-    this.atualizarListaIngredientes();
-    this.atualizarListaComprovantes();
-    this.atualizarListaVendas();
-    this.atualizarResumoEvento();
-},
+        const evento = this.events[this.selectedDay];
+        
+        document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Novo Evento';
+        document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Clique para editar'}`;
+        
+        document.getElementById('eventName').value = evento.eventName || '';
+        document.getElementById('responsible').value = evento.responsible || '';
+        document.getElementById('notes').value = evento.notes || '';
+        
+        this.atualizarListaProducao();
+        this.atualizarListaIngredientes();
+        this.atualizarListaComprovantes();
+        this.atualizarListaVendas();
+        this.atualizarResumoEvento();
+        this.atualizarSelectProdutos();
+    },
 
     atualizarResumoEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
@@ -284,69 +288,235 @@ const App = {
     },
 
     mudarAba(aba) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(content => content.classList.remove('active'));
-    
-    if (aba === 'evento') {
-        document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
-        document.getElementById('tabEvento').classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(content => content.classList.remove('active'));
         
-        // Garantir que os campos da aba evento estejam preenchidos
-        if (this.selectedDay && this.events[this.selectedDay]) {
-            const evento = this.events[this.selectedDay];
-            document.getElementById('eventName').value = evento.eventName || '';
-            document.getElementById('responsible').value = evento.responsible || '';
-            document.getElementById('notes').value = evento.notes || '';
+        if (aba === 'evento') {
+            document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+            document.getElementById('tabEvento').classList.add('active');
+            
+            if (this.selectedDay && this.events[this.selectedDay]) {
+                const evento = this.events[this.selectedDay];
+                document.getElementById('eventName').value = evento.eventName || '';
+                document.getElementById('responsible').value = evento.responsible || '';
+                document.getElementById('notes').value = evento.notes || '';
+            }
+        } else if (aba === 'custos') {
+            document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+            document.getElementById('tabCustos').classList.add('active');
+        } else if (aba === 'vendas') {
+            document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
+            document.getElementById('tabVendas').classList.add('active');
+            this.atualizarTotaisGerais();
+        } else if (aba === 'relatorio') {
+            document.querySelector('.tab-btn:nth-child(4)').classList.add('active');
+            document.getElementById('tabRelatorio').classList.add('active');
+            this.atualizarRelatorioEvento();
         }
-    } else if (aba === 'custos') {
-        document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
-        document.getElementById('tabCustos').classList.add('active');
-    } else if (aba === 'vendas') {
-        document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
-        document.getElementById('tabVendas').classList.add('active');
-    } else if (aba === 'relatorio') {
-        document.querySelector('.tab-btn:nth-child(4)').classList.add('active');
-        document.getElementById('tabRelatorio').classList.add('active');
-        this.atualizarRelatorioEvento();
-    }
-},
+    },
 
     async salvarEvento() {
-    if (!this.selectedDay) return;
+        if (!this.selectedDay) return;
 
-    const eventName = document.getElementById('eventName').value;
-    const responsible = document.getElementById('responsible').value;
-    const notes = document.getElementById('notes').value;
+        const eventName = document.getElementById('eventName').value;
+        const responsible = document.getElementById('responsible').value;
+        const notes = document.getElementById('notes').value;
 
-    if (!this.events[this.selectedDay]) {
-        this.events[this.selectedDay] = {
-            ingredientes: [],
-            vendas: [],
-            comprovantes: []
+        if (!this.events[this.selectedDay]) {
+            this.events[this.selectedDay] = {
+                producao: [],
+                ingredientes: [],
+                vendas: [],
+                comprovantes: []
+            };
+        }
+
+        this.events[this.selectedDay].eventName = eventName;
+        this.events[this.selectedDay].responsible = responsible;
+        this.events[this.selectedDay].notes = notes;
+
+        document.getElementById('selectedEventName').innerHTML = eventName || 'Novo Evento';
+        document.getElementById('selectedResponsible').innerHTML = `👤 ${responsible || 'Clique para editar'}`;
+
+        await this.salvarDados();
+
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>✅</span> Salvo!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.background = '';
+        }, 1500);
+    },
+
+    // ========== PRODUÇÃO ==========
+    mostrarFormProducao(producaoId = null) {
+        this.producaoEditando = producaoId;
+        this.limparFormProducao();
+        
+        if (producaoId) {
+            document.getElementById('producaoEditId').value = producaoId;
+            const item = this.events[this.selectedDay].producao.find(p => String(p.id) === String(producaoId));
+            if (item) {
+                document.getElementById('producaoNome').value = item.nome || '';
+                document.getElementById('producaoQuantidade').value = item.quantidade || 0;
+                document.getElementById('producaoValor').value = item.valor || 0;
+            }
+        }
+        
+        document.getElementById('formProducao').classList.remove('hidden');
+    },
+
+    cancelarFormProducao() {
+        document.getElementById('formProducao').classList.add('hidden');
+        this.producaoEditando = null;
+        this.limparFormProducao();
+    },
+
+    limparFormProducao() {
+        document.getElementById('producaoEditId').value = '';
+        document.getElementById('producaoNome').value = '';
+        document.getElementById('producaoQuantidade').value = '';
+        document.getElementById('producaoValor').value = '';
+    },
+
+    async salvarProducao() {
+        if (!this.selectedDay) return;
+
+        const id = document.getElementById('producaoEditId').value || Date.now();
+        const nome = document.getElementById('producaoNome').value;
+        const quantidade = parseInt(document.getElementById('producaoQuantidade').value) || 0;
+        const valor = parseFloat(document.getElementById('producaoValor').value) || 0;
+
+        if (!nome) {
+            alert('Digite o nome do prato!');
+            return;
+        }
+
+        if (quantidade <= 0) {
+            alert('Digite a quantidade produzida!');
+            return;
+        }
+
+        if (valor <= 0) {
+            alert('Digite o valor de venda!');
+            return;
+        }
+
+        if (!this.events[this.selectedDay].producao) {
+            this.events[this.selectedDay].producao = [];
+        }
+
+        const item = {
+            id,
+            nome,
+            quantidade,
+            valor,
+            vendido: 0
         };
-    }
 
-    this.events[this.selectedDay].eventName = eventName;
-    this.events[this.selectedDay].responsible = responsible;
-    this.events[this.selectedDay].notes = notes;
+        if (this.producaoEditando) {
+            const index = this.events[this.selectedDay].producao.findIndex(p => String(p.id) === String(this.producaoEditando));
+            if (index !== -1) {
+                this.events[this.selectedDay].producao[index] = item;
+            }
+        } else {
+            this.events[this.selectedDay].producao.push(item);
+        }
 
-    // Atualizar o card do evento
-    document.getElementById('selectedEventName').innerHTML = eventName || 'Novo Evento';
-    document.getElementById('selectedResponsible').innerHTML = `👤 ${responsible || 'Clique para editar'}`;
+        this.cancelarFormProducao();
+        this.atualizarListaProducao();
+        this.atualizarSelectProdutos();
+        await this.salvarDados();
+    },
 
-    await this.salvarDados();
+    atualizarListaProducao() {
+        if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
-    // Feedback visual melhorado
-    const btn = event.target;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<span>✅</span> Salvo!';
-    btn.style.background = '#10b981';
-    setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.style.background = '';
-    }, 1500);
-},
+        const producao = this.events[this.selectedDay].producao || [];
+        let html = '';
+        let totalItens = 0;
 
+        producao.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+        producao.forEach((item) => {
+            const disponivel = item.quantidade - (item.vendido || 0);
+            totalItens += disponivel;
+
+            html += `
+                <div class="item-card" style="border-left-color: var(--success);">
+                    <div class="item-info">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="item-name">${item.nome}</span>
+                            <span class="item-badge" style="background: var(--primary);">R$ ${item.valor.toFixed(2)}</span>
+                        </div>
+                        <span class="item-details">Produzido: ${item.quantidade} • Vendido: ${item.vendido || 0} • Disponível: ${disponivel}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button class="btn-icon" style="background: var(--primary);" onclick="app.mostrarFormProducao('${item.id}')" title="Editar">
+                            ✏️
+                        </button>
+                        <button class="btn-icon" style="background: var(--danger);" onclick="app.removerProducao('${item.id}')" title="Remover">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        document.getElementById('producaoList').innerHTML = html || '<div style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum prato cadastrado</div>';
+        document.getElementById('totalItensProducao').innerHTML = totalItens;
+    },
+
+    async removerProducao(id) {
+        if (confirm('Remover este prato?')) {
+            this.events[this.selectedDay].producao = this.events[this.selectedDay].producao.filter(p => String(p.id) !== String(id));
+            this.atualizarListaProducao();
+            this.atualizarSelectProdutos();
+            await this.salvarDados();
+        }
+    },
+
+    atualizarSelectProdutos() {
+        const select = document.getElementById('vendaProdutoId');
+        if (!select) return;
+
+        const producao = this.events[this.selectedDay]?.producao || [];
+        
+        let options = '<option value="">Selecione um prato</option>';
+        
+        producao.forEach(item => {
+            const disponivel = item.quantidade - (item.vendido || 0);
+            if (disponivel > 0) {
+                options += `<option value="${item.id}">${item.nome} - R$ ${item.valor.toFixed(2)} (${disponivel} disp)</option>`;
+            }
+        });
+
+        select.innerHTML = options;
+    },
+
+    carregarDadosProduto() {
+        const select = document.getElementById('vendaProdutoId');
+        const produtoId = select.value;
+        
+        if (!produtoId) {
+            document.getElementById('vendaValorUnit').value = '';
+            document.getElementById('vendaDisponivel').value = '';
+            return;
+        }
+
+        const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+        if (produto) {
+            const disponivel = produto.quantidade - (produto.vendido || 0);
+            document.getElementById('vendaValorUnit').value = produto.valor;
+            document.getElementById('vendaDisponivel').value = disponivel;
+            document.getElementById('vendaQtd').max = disponivel;
+            this.calcularTotalVenda();
+        }
+    },
+
+    // ========== CUSTOS ==========
     mostrarFormIngrediente(ingredienteId = null) {
         this.ingredienteEditando = ingredienteId;
         const modalTitle = document.getElementById('ingredienteModalTitle');
@@ -560,6 +730,7 @@ const App = {
         }
     },
 
+    // ========== COMPROVANTES ==========
     mostrarFormComprovante(comprovanteId = null) {
         this.comprovanteEditando = comprovanteId;
         this.ingredientesSelecionados = [];
@@ -911,7 +1082,9 @@ const App = {
         }
     },
 
+    // ========== VENDAS ==========
     mostrarFormVenda() {
+        this.atualizarSelectProdutos();
         document.getElementById('formVenda').classList.remove('hidden');
         this.limparFormVenda();
     },
@@ -923,7 +1096,7 @@ const App = {
 
     limparFormVenda() {
         document.getElementById('vendaCliente').value = '';
-        document.getElementById('vendaProduto').value = '';
+        document.getElementById('vendaProdutoId').value = '';
         document.getElementById('vendaQtd').value = '1';
         document.getElementById('vendaValorUnit').value = '';
         document.getElementById('vendaTotal').value = '';
@@ -931,7 +1104,8 @@ const App = {
         document.getElementById('vendaValorPago').value = '';
         document.getElementById('vendaEntrega').value = 'nao';
         document.getElementById('vendaObs').value = '';
-        document.getElementById('vendaPendente').innerHTML = 'R$ 0,00';
+        document.getElementById('vendaDisponivel').value = '';
+        document.getElementById('vendaPendente').value = 'R$ 0,00';
     },
 
     calcularTotalVenda() {
@@ -946,15 +1120,15 @@ const App = {
         const total = parseFloat(document.getElementById('vendaTotal').value) || 0;
         const pago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
         const pendente = total - pago;
-        document.getElementById('vendaPendente').innerHTML = `R$ ${pendente.toFixed(2)}`;
+        document.getElementById('vendaPendente').value = `R$ ${pendente.toFixed(2)}`;
     },
 
     async salvarVenda() {
         if (!this.selectedDay) return;
 
         const cliente = document.getElementById('vendaCliente').value;
-        const produto = document.getElementById('vendaProduto').value;
-        const quantidade = parseFloat(document.getElementById('vendaQtd').value) || 0;
+        const produtoId = document.getElementById('vendaProdutoId').value;
+        const quantidade = parseInt(document.getElementById('vendaQtd').value) || 0;
         const valorUnit = parseFloat(document.getElementById('vendaValorUnit').value) || 0;
         const formaPagamento = document.getElementById('vendaFormaPagamento').value;
         const valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
@@ -966,13 +1140,25 @@ const App = {
             return;
         }
 
-        if (!produto) {
-            alert('Digite o produto!');
+        if (!produtoId) {
+            alert('Selecione um produto!');
             return;
         }
 
-        if (quantidade <= 0 || valorUnit <= 0) {
-            alert('Preencha quantidade e valor!');
+        const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+        if (!produto) {
+            alert('Produto não encontrado!');
+            return;
+        }
+
+        const disponivel = produto.quantidade - (produto.vendido || 0);
+        if (quantidade > disponivel) {
+            alert(`Quantidade indisponível! Disponível: ${disponivel}`);
+            return;
+        }
+
+        if (quantidade <= 0) {
+            alert('Digite a quantidade!');
             return;
         }
 
@@ -983,13 +1169,15 @@ const App = {
         const venda = {
             id: this.vendaEditando || Date.now(),
             cliente,
-            produto,
+            produtoId,
+            produtoNome: produto.nome,
             quantidade,
             valorUnit,
             valorPago,
             formaPagamento,
             entrega,
-            observacoes
+            observacoes,
+            data: new Date().toISOString()
         };
 
         if (this.vendaEditando) {
@@ -999,11 +1187,15 @@ const App = {
             }
         } else {
             this.events[this.selectedDay].vendas.push(venda);
+            produto.vendido = (produto.vendido || 0) + quantidade;
         }
 
         this.cancelarFormVenda();
+        this.atualizarListaProducao();
         this.atualizarListaVendas();
         this.atualizarResumoEvento();
+        this.atualizarSelectProdutos();
+        this.atualizarTotaisGerais();
         await this.salvarDados();
     },
 
@@ -1013,7 +1205,7 @@ const App = {
         const vendas = this.events[this.selectedDay].vendas || [];
         let html = '';
 
-        vendas.sort((a, b) => (a.cliente || '').localeCompare(b.cliente || ''));
+        vendas.sort((a, b) => new Date(b.data) - new Date(a.data));
 
         vendas.forEach((venda) => {
             const valorTotal = venda.quantidade * venda.valorUnit;
@@ -1027,7 +1219,7 @@ const App = {
                     </div>
                     
                     <div class="venda-produto">
-                        ${venda.produto} • ${venda.quantidade}x R$ ${venda.valorUnit.toFixed(2)}
+                        ${venda.produtoNome} • ${venda.quantidade}x R$ ${venda.valorUnit.toFixed(2)}
                     </div>
                     
                     <div class="venda-pagamento">
@@ -1097,6 +1289,7 @@ const App = {
         this.cancelarPagamento();
         this.atualizarListaVendas();
         this.atualizarResumoEvento();
+        this.atualizarTotaisGerais();
         await this.salvarDados();
     },
 
@@ -1106,7 +1299,7 @@ const App = {
         if (!venda) return;
         
         document.getElementById('vendaCliente').value = venda.cliente || '';
-        document.getElementById('vendaProduto').value = venda.produto || '';
+        document.getElementById('vendaProdutoId').value = venda.produtoId || '';
         document.getElementById('vendaQtd').value = venda.quantidade || 1;
         document.getElementById('vendaValorUnit').value = venda.valorUnit || 0;
         document.getElementById('vendaTotal').value = (venda.quantidade * venda.valorUnit).toFixed(2);
@@ -1121,17 +1314,69 @@ const App = {
 
     async removerVenda(id) {
         if (confirm('Remover esta venda?')) {
+            const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+            if (venda) {
+                const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(venda.produtoId));
+                if (produto) {
+                    produto.vendido = (produto.vendido || 0) - venda.quantidade;
+                }
+            }
+            
             this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => String(v.id) !== String(id));
+            this.atualizarListaProducao();
             this.atualizarListaVendas();
             this.atualizarResumoEvento();
+            this.atualizarSelectProdutos();
+            this.atualizarTotaisGerais();
             await this.salvarDados();
         }
     },
 
+    // ========== TOTAIS GERAIS ==========
+    atualizarTotaisGerais() {
+        const hoje = new Date().toISOString().split('T')[0];
+        const hojeKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+        
+        let totalVendasHoje = 0;
+        let totalVendasGeral = 0;
+        let totalRecebidoGeral = 0;
+        let totalCustosGeral = 0;
+
+        Object.values(this.events).forEach(evento => {
+            if (evento.vendas) {
+                evento.vendas.forEach(venda => {
+                    const valorTotal = venda.quantidade * venda.valorUnit;
+                    totalVendasGeral += valorTotal;
+                    totalRecebidoGeral += venda.valorPago || 0;
+                    
+                    // Verificar se é venda de hoje
+                    if (evento.data === hojeKey) {
+                        totalVendasHoje += valorTotal;
+                    }
+                });
+            }
+            
+            if (evento.ingredientes) {
+                evento.ingredientes.forEach(ing => {
+                    if (!ing.doacao) totalCustosGeral += ing.valorTotal || 0;
+                });
+            }
+        });
+
+        const liquidoGeral = totalRecebidoGeral - totalCustosGeral;
+
+        document.getElementById('resumoVendasHoje').innerHTML = `R$ ${totalVendasHoje.toFixed(2)}`;
+        document.getElementById('resumoVendasGeral').innerHTML = `R$ ${totalVendasGeral.toFixed(2)}`;
+        document.getElementById('resumoRecebidoGeral').innerHTML = `R$ ${totalRecebidoGeral.toFixed(2)}`;
+        document.getElementById('resumoLiquido').innerHTML = `R$ ${liquidoGeral.toFixed(2)}`;
+    },
+
+    // ========== RELATÓRIOS ==========
     atualizarRelatorioEvento() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
         const evento = this.events[this.selectedDay];
+        const producao = evento.producao || [];
         const ingredientes = evento.ingredientes || [];
         const vendas = evento.vendas || [];
         const comprovantes = evento.comprovantes || [];
@@ -1143,6 +1388,11 @@ const App = {
         const itensComprados = ingredientes.filter(item => item.comprado).length;
         const itensSemValor = ingredientes.filter(item => (item.valorTotal === 0 || !item.valorTotal) && !item.doacao).length;
         
+        // Estatísticas de produção
+        const totalProduzido = producao.reduce((acc, item) => acc + item.quantidade, 0);
+        const totalVendidos = producao.reduce((acc, item) => acc + (item.vendido || 0), 0);
+        const totalRestantes = totalProduzido - totalVendidos;
+        
         let totalVendas = 0;
         let totalRecebido = 0;
         let totalDinheiro = 0;
@@ -1150,13 +1400,11 @@ const App = {
         let totalPixJheni = 0;
         let totalDebito = 0;
         let totalEntregues = 0;
-        let totalItens = 0;
 
         vendas.forEach(venda => {
             const valorTotal = venda.quantidade * venda.valorUnit;
             totalVendas += valorTotal;
             totalRecebido += venda.valorPago || 0;
-            totalItens += venda.quantidade;
 
             if (venda.entrega === 'sim') totalEntregues++;
 
@@ -1181,7 +1429,12 @@ const App = {
         document.getElementById('relRecebido').innerHTML = `R$ ${totalRecebido.toFixed(2)}`;
         document.getElementById('relAReceber').innerHTML = `R$ ${aReceber.toFixed(2)}`;
         document.getElementById('relEntregues').innerHTML = `${totalEntregues} de ${vendas.length}`;
-        document.getElementById('relItens').innerHTML = totalItens;
+        
+        // Novos campos de produção
+        document.getElementById('relItensProduzidos').innerHTML = totalProduzido;
+        document.getElementById('relItensVendidos').innerHTML = totalVendidos;
+        document.getElementById('relItensRestantes').innerHTML = totalRestantes;
+        
         document.getElementById('relItensComprados').innerHTML = itensComprados;
         document.getElementById('relTotalComprovantes').innerHTML = comprovantes.length;
         document.getElementById('relTotalComprado').innerHTML = `R$ ${totalComprado.toFixed(2)}`;
@@ -1192,6 +1445,7 @@ const App = {
         }
     },
 
+    // ========== NAVEGAÇÃO ==========
     async excluirEvento() {
         if (!this.selectedDay) return;
         
@@ -1210,6 +1464,7 @@ const App = {
             
             localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
             this.voltarCalendario();
+            this.atualizarTotaisGerais();
         }
     },
 

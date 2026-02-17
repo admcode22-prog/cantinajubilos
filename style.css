@@ -390,6 +390,63 @@ body {
     background: var(--success);
 }
 
+/* Produção */
+.producao-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+}
+
+/* Summary Cards */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.stat-card {
+    background: var(--background);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.stat-value.profit { color: var(--primary); }
+.stat-value.success { color: var(--success); }
+
+/* Summary Card */
+.summary-card {
+    background: var(--secondary);
+    color: white;
+    padding: 16px;
+    border-radius: 12px;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
 /* Vendas List */
 .vendas-list {
     display: flex;
