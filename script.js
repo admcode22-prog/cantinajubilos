@@ -206,31 +206,41 @@ const App = {
 
     async salvarProducao(item) {
         try {
+            let response;
+            
             if (item.id) {
                 // Atualizar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/producao?id=eq.${item.id}`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/producao?id=eq.${item.id}`, {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                if (!response.ok) throw new Error('Erro ao atualizar produção');
-                
-                const index = this.producao.findIndex(p => p.id === item.id);
-                if (index !== -1) this.producao[index] = item;
-                
             } else {
                 // Criar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/producao`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/producao`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                const data = await response.json();
-                if (!response.ok) throw new Error('Erro ao criar produção');
-                
+            }
+            
+            if (!response.ok) {
+                const erro = await response.text();
+                throw new Error(`Erro: ${erro}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!item.id) {
+                // Se foi criação, adicionar ao array local
                 this.producao.push(data[0]);
                 return data[0];
+            } else {
+                // Se foi atualização, atualizar no array local
+                const index = this.producao.findIndex(p => p.id === item.id);
+                if (index !== -1) this.producao[index] = item;
             }
+            
         } catch (error) {
             console.error('Erro ao salvar produção:', error);
             throw error;
@@ -239,31 +249,45 @@ const App = {
 
     async salvarIngrediente(item) {
         try {
+            console.log('Salvando ingrediente:', item);
+            
+            let response;
+            
             if (item.id) {
                 // Atualizar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/ingredientes?id=eq.${item.id}`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/ingredientes?id=eq.${item.id}`, {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                if (!response.ok) throw new Error('Erro ao atualizar ingrediente');
-                
-                const index = this.ingredientes.findIndex(i => i.id === item.id);
-                if (index !== -1) this.ingredientes[index] = item;
-                
             } else {
                 // Criar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/ingredientes`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/ingredientes`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                const data = await response.json();
-                if (!response.ok) throw new Error('Erro ao criar ingrediente');
-                
+            }
+            
+            if (!response.ok) {
+                const erro = await response.text();
+                throw new Error(`Erro: ${erro}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!item.id) {
+                // Se foi criação, adicionar ao array local
                 this.ingredientes.push(data[0]);
                 return data[0];
+            } else {
+                // Se foi atualização, atualizar no array local
+                const index = this.ingredientes.findIndex(i => i.id === item.id);
+                if (index !== -1) this.ingredientes[index] = item;
             }
+            
+            console.log('Ingrediente salvo com sucesso');
+            
         } catch (error) {
             console.error('Erro ao salvar ingrediente:', error);
             throw error;
@@ -272,31 +296,37 @@ const App = {
 
     async salvarComprovante(item) {
         try {
+            let response;
+            
             if (item.id) {
-                // Atualizar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/comprovantes?id=eq.${item.id}`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/comprovantes?id=eq.${item.id}`, {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                if (!response.ok) throw new Error('Erro ao atualizar comprovante');
-                
-                const index = this.comprovantes.findIndex(c => c.id === item.id);
-                if (index !== -1) this.comprovantes[index] = item;
-                
             } else {
-                // Criar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/comprovantes`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/comprovantes`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                const data = await response.json();
-                if (!response.ok) throw new Error('Erro ao criar comprovante');
-                
+            }
+            
+            if (!response.ok) {
+                const erro = await response.text();
+                throw new Error(`Erro: ${erro}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!item.id) {
                 this.comprovantes.push(data[0]);
                 return data[0];
+            } else {
+                const index = this.comprovantes.findIndex(c => c.id === item.id);
+                if (index !== -1) this.comprovantes[index] = item;
             }
+            
         } catch (error) {
             console.error('Erro ao salvar comprovante:', error);
             throw error;
@@ -305,31 +335,37 @@ const App = {
 
     async salvarVenda(item) {
         try {
+            let response;
+            
             if (item.id) {
-                // Atualizar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/vendas?id=eq.${item.id}`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/vendas?id=eq.${item.id}`, {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                if (!response.ok) throw new Error('Erro ao atualizar venda');
-                
-                const index = this.vendas.findIndex(v => v.id === item.id);
-                if (index !== -1) this.vendas[index] = item;
-                
             } else {
-                // Criar
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/vendas`, {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/vendas`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(item)
                 });
-                const data = await response.json();
-                if (!response.ok) throw new Error('Erro ao criar venda');
-                
+            }
+            
+            if (!response.ok) {
+                const erro = await response.text();
+                throw new Error(`Erro: ${erro}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!item.id) {
                 this.vendas.push(data[0]);
                 return data[0];
+            } else {
+                const index = this.vendas.findIndex(v => v.id === item.id);
+                if (index !== -1) this.vendas[index] = item;
             }
+            
         } catch (error) {
             console.error('Erro ao salvar venda:', error);
             throw error;
@@ -343,7 +379,6 @@ const App = {
                 headers: headers
             });
             if (!response.ok) throw new Error('Erro ao deletar produção');
-            
             this.producao = this.producao.filter(p => p.id !== id);
         } catch (error) {
             console.error('Erro ao deletar produção:', error);
@@ -358,7 +393,6 @@ const App = {
                 headers: headers
             });
             if (!response.ok) throw new Error('Erro ao deletar ingrediente');
-            
             this.ingredientes = this.ingredientes.filter(i => i.id !== id);
         } catch (error) {
             console.error('Erro ao deletar ingrediente:', error);
@@ -395,7 +429,6 @@ const App = {
                 headers: headers
             });
             if (!response.ok) throw new Error('Erro ao deletar venda');
-            
             this.vendas = this.vendas.filter(v => v.id !== id);
         } catch (error) {
             console.error('Erro ao deletar venda:', error);
@@ -610,7 +643,7 @@ const App = {
     async salvarProducao() {
         if (!this.selectedEventoId) return;
 
-        const id = document.getElementById('producaoEditId').value || null;
+        const id = document.getElementById('producaoEditId').value ? parseInt(document.getElementById('producaoEditId').value) : null;
         const nome = document.getElementById('producaoNome').value;
         const quantidade = parseInt(document.getElementById('producaoQuantidade').value) || 0;
         const valor = parseFloat(document.getElementById('producaoValor').value) || 0;
@@ -746,9 +779,11 @@ const App = {
         if (ingredienteId) {
             modalTitle.innerHTML = '✏️ Editar Ingrediente';
             
-            const ingrediente = this.ingredientes.find(i => i.id === ingredienteId);
+            const id = typeof ingredienteId === 'string' ? parseInt(ingredienteId) : ingredienteId;
+            const ingrediente = this.ingredientes.find(i => i.id === id);
             
             if (ingrediente) {
+                console.log('Editando ingrediente:', ingrediente);
                 document.getElementById('ingredienteEditId').value = ingrediente.id || '';
                 document.getElementById('ingredienteNome').value = ingrediente.nome || '';
                 document.getElementById('ingredienteQtd').value = ingrediente.quantidade || '';
@@ -809,14 +844,14 @@ const App = {
     async salvarIngrediente() {
         if (!this.selectedEventoId) return;
 
-        const id = document.getElementById('ingredienteEditId').value || null;
+        const id = document.getElementById('ingredienteEditId').value ? parseInt(document.getElementById('ingredienteEditId').value) : null;
         const nome = document.getElementById('ingredienteNome').value;
         const quantidade = parseFloat(document.getElementById('ingredienteQtd').value) || 0;
         const unidade = document.getElementById('ingredienteUnidade').value;
         const valorTotal = parseFloat(document.getElementById('ingredienteValor').value) || 0;
         const comprado = document.getElementById('ingredienteComprado').checked;
         const doacao = document.getElementById('ingredienteDoacao').checked;
-        const comprovanteId = document.getElementById('ingredienteComprovanteId').value || null;
+        const comprovanteId = document.getElementById('ingredienteComprovanteId').value ? parseInt(document.getElementById('ingredienteComprovanteId').value) : null;
 
         if (!nome) {
             alert('Digite o nome do ingrediente!');
@@ -839,6 +874,8 @@ const App = {
             doacao: doacao,
             comprovante_id: comprovanteId
         };
+
+        console.log('Salvando ingrediente:', ingrediente);
 
         await this.salvarIngrediente(ingrediente);
         this.cancelarFormIngrediente();
@@ -936,7 +973,8 @@ const App = {
         this.limparFormComprovante();
         
         if (comprovanteId) {
-            const comprovante = this.comprovantes.find(c => c.id === comprovanteId);
+            const id = typeof comprovanteId === 'string' ? parseInt(comprovanteId) : comprovanteId;
+            const comprovante = this.comprovantes.find(c => c.id === id);
             if (comprovante) {
                 document.getElementById('comprovanteEditId').value = comprovante.id;
                 document.getElementById('comprovanteNome').value = comprovante.nome || '';
@@ -999,14 +1037,15 @@ const App = {
     },
 
     toggleIngredienteComprovante(ingredienteId) {
-        const index = this.ingredientesSelecionados.indexOf(ingredienteId);
+        const id = typeof ingredienteId === 'string' ? parseInt(ingredienteId) : ingredienteId;
+        const index = this.ingredientesSelecionados.indexOf(id);
         if (index === -1) {
-            this.ingredientesSelecionados.push(ingredienteId);
+            this.ingredientesSelecionados.push(id);
         } else {
             this.ingredientesSelecionados.splice(index, 1);
         }
         
-        const checkbox = document.getElementById(`ingrediente_${ingredienteId}`);
+        const checkbox = document.getElementById(`ingrediente_${id}`);
         if (checkbox) {
             checkbox.checked = (index === -1);
             const itemDiv = checkbox.closest('div[style*="display: flex"]');
@@ -1038,7 +1077,7 @@ const App = {
     async salvarComprovante() {
         if (!this.selectedEventoId) return;
 
-        const id = document.getElementById('comprovanteEditId').value || null;
+        const id = document.getElementById('comprovanteEditId').value ? parseInt(document.getElementById('comprovanteEditId').value) : null;
         const nome = document.getElementById('comprovanteNome').value;
         const data = document.getElementById('comprovanteData').value;
         const valorTotal = parseFloat(document.getElementById('comprovanteValor').value) || 0;
@@ -1067,13 +1106,14 @@ const App = {
             imagem: imagem || (id ? this.comprovantes.find(c => c.id === id)?.imagem : null)
         };
 
-        await this.salvarComprovante(comprovante);
+        const comprovanteSalvo = await this.salvarComprovante(comprovante);
+        const comprovanteId = comprovanteSalvo ? comprovanteSalvo.id : id;
 
         // Atualizar ingredientes com o ID do comprovante
         const ingredientes = this.ingredientes.filter(i => i.evento_id === this.selectedEventoId);
         
         for (const ing of ingredientes) {
-            const novoComprovanteId = this.ingredientesSelecionados.includes(ing.id) ? comprovante.id : null;
+            const novoComprovanteId = this.ingredientesSelecionados.includes(ing.id) ? comprovanteId : null;
             if (ing.comprovante_id !== novoComprovanteId) {
                 ing.comprovante_id = novoComprovanteId;
                 await this.salvarIngrediente(ing);
