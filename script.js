@@ -78,130 +78,123 @@ const App = {
     },
 
     async carregarEventos() {
-        try {
-            console.log('Carregando eventos do Supabase...');
-            
-            // Buscar eventos
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.EVENTOS}?order=created_at.desc`, {
-                method: 'GET',
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                }
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Erro ao carregar eventos:', response.status, errorText);
-                throw new Error(`Erro ao carregar eventos: ${response.status}`);
+    try {
+        console.log('Carregando eventos do Supabase...');
+        
+        // Buscar eventos
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.EVENTOS}?order=created_at.desc`, {
+            method: 'GET',
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
             }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erro ao carregar eventos: ${response.status}`);
+        }
+        
+        const eventos = await response.json();
+        console.log('Eventos carregados:', eventos);
+        
+        this.events = {};
+        
+        // Para cada evento, buscar seus dados relacionados
+        for (const evento of eventos) {
+            const data = evento.data;
             
-            const eventos = await response.json();
-            console.log('Eventos carregados:', eventos);
-            
-            this.events = {};
-            
-            // Para cada evento, buscar seus dados relacionados
-            for (const evento of eventos) {
-                const data = evento.data;
+            try {
+                // Buscar produção
+                const producaoRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?evento_id=eq.${evento.id}&select=*`,
+                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+                );
+                const producao = producaoRes.ok ? await producaoRes.json() : [];
                 
-                try {
-                    // Buscar produção
-                    const producaoRes = await fetch(
-                        `${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?evento_id=eq.${evento.id}&select=*`,
-                        { 
-                            headers: {
-                                'apikey': SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                            }
-                        }
-                    );
-                    const producao = producaoRes.ok ? await producaoRes.json() : [];
-                    
-                    // Buscar comprovantes
-                    const comprovantesRes = await fetch(
-                        `${SUPABASE_URL}/rest/v1/${TABLES.COMPROVANTES}?evento_id=eq.${evento.id}&select=*`,
-                        { 
-                            headers: {
-                                'apikey': SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                            }
-                        }
-                    );
-                    const comprovantes = comprovantesRes.ok ? await comprovantesRes.json() : [];
-                    
-                    // Buscar ingredientes
-                    const ingredientesRes = await fetch(
-                        `${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?evento_id=eq.${evento.id}&select=*`,
-                        { 
-                            headers: {
-                                'apikey': SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                            }
-                        }
-                    );
-                    const ingredientes = ingredientesRes.ok ? await ingredientesRes.json() : [];
-                    
-                    // Buscar vendas
-                    const vendasRes = await fetch(
-                        `${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?evento_id=eq.${evento.id}&select=*`,
-                        { 
-                            headers: {
-                                'apikey': SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                            }
-                        }
-                    );
-                    const vendas = vendasRes.ok ? await vendasRes.json() : [];
-                    
-                    this.events[data] = {
-                        id: evento.id,
-                        eventName: evento.eventName || '',
-                        responsible: evento.responsible || '',
-                        notes: evento.notes || '',
-                        producao: producao || [],
-                        comprovantes: comprovantes || [],
-                        ingredientes: ingredientes || [],
-                        vendas: vendas || []
-                    };
-                } catch (error) {
-                    console.error(`Erro ao carregar dados relacionados do evento ${data}:`, error);
-                    this.events[data] = {
-                        id: evento.id,
-                        eventName: evento.eventName || '',
-                        responsible: evento.responsible || '',
-                        notes: evento.notes || '',
-                        producao: [],
-                        comprovantes: [],
-                        ingredientes: [],
-                        vendas: []
-                    };
-                }
+                // Buscar comprovantes
+                const comprovantesRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/${TABLES.COMPROVANTES}?evento_id=eq.${evento.id}&select=*`,
+                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+                );
+                const comprovantes = comprovantesRes.ok ? await comprovantesRes.json() : [];
+                
+                // Buscar ingredientes
+                const ingredientesRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?evento_id=eq.${evento.id}&select=*`,
+                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+                );
+                const ingredientes = ingredientesRes.ok ? await ingredientesRes.json() : [];
+                
+                // Buscar vendas
+                const vendasRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?evento_id=eq.${evento.id}&select=*`,
+                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+                );
+                const vendas = vendasRes.ok ? await vendasRes.json() : [];
+                
+                this.events[data] = {
+                    id: evento.id,
+                    eventName: evento.eventName || '',
+                    responsible: evento.responsible || '',
+                    notes: evento.notes || '',
+                    producao: producao || [],
+                    comprovantes: comprovantes || [],
+                    ingredientes: ingredientes || [],
+                    vendas: vendas || []
+                };
+            } catch (error) {
+                console.error(`Erro ao carregar dados do evento ${data}:`, error);
+                this.events[data] = {
+                    id: evento.id,
+                    eventName: evento.eventName || '',
+                    responsible: evento.responsible || '',
+                    notes: evento.notes || '',
+                    producao: [],
+                    comprovantes: [],
+                    ingredientes: [],
+                    vendas: []
+                };
             }
-            
-            console.log('Eventos processados:', this.events);
-            
-            // Backup local
-            localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-            
-        } catch (error) {
-            console.error('Erro ao carregar eventos:', error);
-            
-            // Fallback para dados locais
+        }
+        
+        console.log('Eventos processados:', this.events);
+        
+        // Backup local APENAS dos metadados, sem imagens
+        const eventsBackup = {};
+        for (const [data, event] of Object.entries(this.events)) {
+            eventsBackup[data] = {
+                ...event,
+                comprovantes: event.comprovantes.map(c => ({
+                    ...c,
+                    imagem: null // Não salvar imagem no localStorage
+                }))
+            };
+        }
+        
+        try {
+            localStorage.setItem('cantinaEvents', JSON.stringify(eventsBackup));
+        } catch (e) {
+            console.warn('Não foi possível fazer backup no localStorage (quota excedida)');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar eventos:', error);
+        
+        // Tentar carregar backup local (sem imagens)
+        try {
             const localData = localStorage.getItem('cantinaEvents');
             if (localData) {
-                try {
-                    this.events = JSON.parse(localData);
-                    alert('Usando dados offline. Verifique sua conexão com o Supabase.');
-                } catch (e) {
-                    console.error('Erro ao carregar dados locais:', e);
-                    this.events = {};
-                }
+                this.events = JSON.parse(localData);
+                console.log('Usando backup local (sem imagens)');
             } else {
                 this.events = {};
             }
+        } catch (e) {
+            console.error('Erro ao carregar backup local:', e);
+            this.events = {};
         }
-    },
+    }
+},
 
     async getOrCreateEventoId(data) {
     try {
@@ -1136,6 +1129,36 @@ const App = {
         preview.style.display = 'none';
     },
 
+    async comprimirImagem(file, maxWidth = 1024, qualidade = 0.7) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (readerEvent) => {
+            const image = new Image();
+            image.src = readerEvent.target.result;
+            image.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = image.width;
+                let height = image.height;
+                
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(image, 0, 0, width, height);
+                
+                const imagemComprimida = canvas.toDataURL('image/jpeg', qualidade);
+                resolve(imagemComprimida);
+            };
+        };
+    });
+},
+
     async salvarComprovante() {
         if (!this.selectedDay) return;
 
@@ -1145,14 +1168,12 @@ const App = {
         const valorTotal = parseFloat(document.getElementById('comprovanteValor').value) || 0;
         const imagemInput = document.getElementById('comprovanteImagem');
         
-        let imagem = null;
-        if (imagemInput.files && imagemInput.files[0]) {
-            const reader = new FileReader();
-            imagem = await new Promise((resolve) => {
-                reader.onload = (e) => resolve(e.target.result);
-                reader.readAsDataURL(imagemInput.files[0]);
-            });
-        }
+        // Na função salvarComprovante, substitua a parte da imagem por:
+let imagem = null;
+if (imagemInput.files && imagemInput.files[0]) {
+    // Comprimir a imagem antes de salvar
+    imagem = await this.comprimirImagem(imagemInput.files[0], 1024, 0.7);
+}
 
         if (!nome) {
             alert('Digite o nome do comprovante!');
