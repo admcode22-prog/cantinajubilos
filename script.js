@@ -64,31 +64,37 @@ const App = {
     },
 
     async carregarEventos() {
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
-                method: 'GET',
-                headers: headers
-            });
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+            method: 'GET',
+            headers: headers
+        });
+        
+        if (!response.ok) throw new Error('Erro ao carregar eventos');
+        
+        const dados = await response.json();
+        
+        this.events = {};
+        dados.forEach(item => {
+            // Garantir que as propriedades existam
+            if (!item.evento.producao) item.evento.producao = [];
+            if (!item.evento.ingredientes) item.evento.ingredientes = [];
+            if (!item.evento.vendas) item.evento.vendas = [];
+            if (!item.evento.comprovantes) item.evento.comprovantes = [];
             
-            if (!response.ok) throw new Error('Erro ao carregar eventos');
-            
-            const dados = await response.json();
-            
-            this.events = {};
-            dados.forEach(item => {
-                this.events[item.data] = item.evento;
-            });
-            
-            console.log('Eventos carregados:', this.events);
-            
-        } catch (error) {
-            console.error('Erro ao carregar eventos:', error);
-            alert('Erro ao carregar dados do servidor. Usando dados locais.');
-            
-            const localData = localStorage.getItem('cantinaEvents');
-            this.events = localData ? JSON.parse(localData) : {};
-        }
-    },
+            this.events[item.data] = item.evento;
+        });
+        
+        console.log('Eventos carregados:', this.events);
+        
+    } catch (error) {
+        console.error('Erro ao carregar eventos:', error);
+        alert('Erro ao carregar dados do servidor. Usando dados locais.');
+        
+        const localData = localStorage.getItem('cantinaEvents');
+        this.events = localData ? JSON.parse(localData) : {};
+    }
+},
 
     async salvarEventoNoSupabase(data, evento) {
         try {
@@ -1124,80 +1130,90 @@ const App = {
     },
 
     async salvarVenda() {
-        if (!this.selectedDay) return;
+    if (!this.selectedDay) return;
 
-        const cliente = document.getElementById('vendaCliente').value;
-        const produtoId = document.getElementById('vendaProdutoId').value;
-        const quantidade = parseInt(document.getElementById('vendaQtd').value) || 0;
-        const valorUnit = parseFloat(document.getElementById('vendaValorUnit').value) || 0;
-        const formaPagamento = document.getElementById('vendaFormaPagamento').value;
-        const valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
-        const entrega = document.getElementById('vendaEntrega').value;
-        const observacoes = document.getElementById('vendaObs').value;
+    const cliente = document.getElementById('vendaCliente').value;
+    const produtoId = document.getElementById('vendaProdutoId').value;
+    const quantidade = parseInt(document.getElementById('vendaQtd').value) || 0;
+    const valorUnit = parseFloat(document.getElementById('vendaValorUnit').value) || 0;
+    const formaPagamento = document.getElementById('vendaFormaPagamento').value;
+    const valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
+    const entrega = document.getElementById('vendaEntrega').value;
+    const observacoes = document.getElementById('vendaObs').value;
 
-        if (!cliente) {
-            alert('Digite o nome do cliente!');
-            return;
+    if (!cliente) {
+        alert('Digite o nome do cliente!');
+        return;
+    }
+
+    if (!produtoId) {
+        alert('Selecione um produto!');
+        return;
+    }
+
+    const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+    if (!produto) {
+        alert('Produto não encontrado!');
+        return;
+    }
+
+    // Garantir que vendido existe
+    if (produto.vendido === undefined) {
+        produto.vendido = 0;
+    }
+
+    const disponivel = produto.quantidade - produto.vendido;
+    if (quantidade > disponivel) {
+        alert(`Quantidade indisponível! Disponível: ${disponivel}`);
+        return;
+    }
+
+    if (quantidade <= 0) {
+        alert('Digite a quantidade!');
+        return;
+    }
+
+    if (!this.events[this.selectedDay].vendas) {
+        this.events[this.selectedDay].vendas = [];
+    }
+
+    const venda = {
+        id: this.vendaEditando || Date.now(),
+        cliente,
+        produtoId,
+        produtoNome: produto.nome,
+        quantidade,
+        valorUnit,
+        valorPago,
+        formaPagamento,
+        entrega,
+        observacoes,
+        data: new Date().toISOString()
+    };
+
+    if (this.vendaEditando) {
+        const index = this.events[this.selectedDay].vendas.findIndex(v => String(v.id) === String(this.vendaEditando));
+        if (index !== -1) {
+            // Se estiver editando, ajustar a quantidade vendida
+            const vendaAntiga = this.events[this.selectedDay].vendas[index];
+            produto.vendido = (produto.vendido || 0) - vendaAntiga.quantidade;
+            this.events[this.selectedDay].vendas[index] = venda;
         }
+    } else {
+        this.events[this.selectedDay].vendas.push(venda);
+    }
+    
+    // Atualizar quantidade vendida
+    produto.vendido = (produto.vendido || 0) + quantidade;
 
-        if (!produtoId) {
-            alert('Selecione um produto!');
-            return;
-        }
-
-        const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
-        if (!produto) {
-            alert('Produto não encontrado!');
-            return;
-        }
-
-        const disponivel = produto.quantidade - (produto.vendido || 0);
-        if (quantidade > disponivel) {
-            alert(`Quantidade indisponível! Disponível: ${disponivel}`);
-            return;
-        }
-
-        if (quantidade <= 0) {
-            alert('Digite a quantidade!');
-            return;
-        }
-
-        if (!this.events[this.selectedDay].vendas) {
-            this.events[this.selectedDay].vendas = [];
-        }
-
-        const venda = {
-            id: this.vendaEditando || Date.now(),
-            cliente,
-            produtoId,
-            produtoNome: produto.nome,
-            quantidade,
-            valorUnit,
-            valorPago,
-            formaPagamento,
-            entrega,
-            observacoes,
-            data: new Date().toISOString()
-        };
-
-        if (this.vendaEditando) {
-            const index = this.events[this.selectedDay].vendas.findIndex(v => String(v.id) === String(this.vendaEditando));
-            if (index !== -1) {
-                this.events[this.selectedDay].vendas[index] = venda;
-            }
-        } else {
-            this.events[this.selectedDay].vendas.push(venda);
-            produto.vendido = (produto.vendido || 0) + quantidade;
-        }
-
-        this.cancelarFormVenda();
-        this.atualizarListaProducao();
-        this.atualizarListaVendas();
-        this.atualizarResumoEvento();
-        this.atualizarSelectProdutos();
-        this.atualizarTotaisGerais();
-        await this.salvarDados();
-    },
+    this.cancelarFormVenda();
+    this.atualizarListaProducao();
+    this.atualizarListaVendas();
+    this.atualizarResumoEvento();
+    this.atualizarSelectProdutos();
+    this.atualizarTotaisGerais();
+    await this.salvarDados();
+},
 
     atualizarListaVendas() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
@@ -1313,63 +1329,74 @@ const App = {
     },
 
     async removerVenda(id) {
-        if (confirm('Remover esta venda?')) {
-            const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
-            if (venda) {
-                const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(venda.produtoId));
-                if (produto) {
-                    produto.vendido = (produto.vendido || 0) - venda.quantidade;
-                }
+    if (confirm('Remover esta venda?')) {
+        const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+        if (venda) {
+            const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(venda.produtoId));
+            if (produto) {
+                produto.vendido = Math.max(0, (produto.vendido || 0) - venda.quantidade);
             }
-            
-            this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => String(v.id) !== String(id));
-            this.atualizarListaProducao();
-            this.atualizarListaVendas();
-            this.atualizarResumoEvento();
-            this.atualizarSelectProdutos();
-            this.atualizarTotaisGerais();
-            await this.salvarDados();
         }
-    },
+        
+        this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => String(v.id) !== String(id));
+        this.atualizarListaProducao();
+        this.atualizarListaVendas();
+        this.atualizarResumoEvento();
+        this.atualizarSelectProdutos();
+        this.atualizarTotaisGerais();
+        await this.salvarDados();
+    }
+},
 
     // ========== TOTAIS GERAIS ==========
-    atualizarTotaisGerais() {
-        const hoje = new Date().toISOString().split('T')[0];
-        const hojeKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+atualizarTotaisGerais() {
+    let totalVendasHoje = 0;
+    let totalVendasGeral = 0;
+    let totalRecebidoGeral = 0;
+    let totalCustosGeral = 0;
+
+    // Data de hoje no mesmo formato das chaves do events (YYYY-MM-DD)
+    const hoje = new Date();
+    const hojeKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+
+    Object.entries(this.events).forEach(([dataKey, evento]) => {
+        // Calcular vendas
+        if (evento.vendas && Array.isArray(evento.vendas)) {
+            evento.vendas.forEach(venda => {
+                const valorTotal = venda.quantidade * venda.valorUnit;
+                totalVendasGeral += valorTotal;
+                totalRecebidoGeral += venda.valorPago || 0;
+                
+                // Verificar se é venda de hoje comparando a chave da data
+                if (dataKey === hojeKey) {
+                    totalVendasHoje += valorTotal;
+                }
+            });
+        }
         
-        let totalVendasHoje = 0;
-        let totalVendasGeral = 0;
-        let totalRecebidoGeral = 0;
-        let totalCustosGeral = 0;
+        // Calcular custos
+        if (evento.ingredientes && Array.isArray(evento.ingredientes)) {
+            evento.ingredientes.forEach(ing => {
+                if (!ing.doacao) {
+                    totalCustosGeral += ing.valorTotal || 0;
+                }
+            });
+        }
+    });
 
-        Object.values(this.events).forEach(evento => {
-            if (evento.vendas) {
-                evento.vendas.forEach(venda => {
-                    const valorTotal = venda.quantidade * venda.valorUnit;
-                    totalVendasGeral += valorTotal;
-                    totalRecebidoGeral += venda.valorPago || 0;
-                    
-                    // Verificar se é venda de hoje
-                    if (evento.data === hojeKey) {
-                        totalVendasHoje += valorTotal;
-                    }
-                });
-            }
-            
-            if (evento.ingredientes) {
-                evento.ingredientes.forEach(ing => {
-                    if (!ing.doacao) totalCustosGeral += ing.valorTotal || 0;
-                });
-            }
-        });
+    const liquidoGeral = totalRecebidoGeral - totalCustosGeral;
 
-        const liquidoGeral = totalRecebidoGeral - totalCustosGeral;
+    // Atualizar os elementos HTML
+    const vendasHojeEl = document.getElementById('resumoVendasHoje');
+    const vendasGeralEl = document.getElementById('resumoVendasGeral');
+    const recebidoGeralEl = document.getElementById('resumoRecebidoGeral');
+    const liquidoEl = document.getElementById('resumoLiquido');
 
-        document.getElementById('resumoVendasHoje').innerHTML = `R$ ${totalVendasHoje.toFixed(2)}`;
-        document.getElementById('resumoVendasGeral').innerHTML = `R$ ${totalVendasGeral.toFixed(2)}`;
-        document.getElementById('resumoRecebidoGeral').innerHTML = `R$ ${totalRecebidoGeral.toFixed(2)}`;
-        document.getElementById('resumoLiquido').innerHTML = `R$ ${liquidoGeral.toFixed(2)}`;
-    },
+    if (vendasHojeEl) vendasHojeEl.innerHTML = `R$ ${totalVendasHoje.toFixed(2)}`;
+    if (vendasGeralEl) vendasGeralEl.innerHTML = `R$ ${totalVendasGeral.toFixed(2)}`;
+    if (recebidoGeralEl) recebidoGeralEl.innerHTML = `R$ ${totalRecebidoGeral.toFixed(2)}`;
+    if (liquidoEl) liquidoEl.innerHTML = `R$ ${liquidoGeral.toFixed(2)}`;
+},
 
     // ========== RELATÓRIOS ==========
     atualizarRelatorioEvento() {
