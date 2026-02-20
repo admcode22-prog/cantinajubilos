@@ -5,7 +5,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_covwt0qpmNmdoRy8oGVdng_kgSdCGBT';
 const headers = {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Prefer': 'return=minimal'
 };
 
 const App = {
@@ -64,40 +65,74 @@ const App = {
     },
 
     async carregarEventos() {
-    try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
-            method: 'GET',
-            headers: headers
-        });
-        
-        if (!response.ok) throw new Error('Erro ao carregar eventos');
-        
-        const dados = await response.json();
-        
-        this.events = {};
-        dados.forEach(item => {
-            // Garantir que as propriedades existam
-            if (!item.evento.producao) item.evento.producao = [];
-            if (!item.evento.ingredientes) item.evento.ingredientes = [];
-            if (!item.evento.vendas) item.evento.vendas = [];
-            if (!item.evento.comprovantes) item.evento.comprovantes = [];
+        try {
+            console.log('Carregando eventos do Supabase...');
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+                method: 'GET',
+                headers: headers
+            });
             
-            this.events[item.data] = item.evento;
-        });
-        
-        console.log('Eventos carregados:', this.events);
-        
-    } catch (error) {
-        console.error('Erro ao carregar eventos:', error);
-        alert('Erro ao carregar dados do servidor. Usando dados locais.');
-        
-        const localData = localStorage.getItem('cantinaEvents');
-        this.events = localData ? JSON.parse(localData) : {};
-    }
-},
+            if (!response.ok) {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
+            
+            const dados = await response.json();
+            console.log('Dados recebidos:', dados);
+            
+            this.events = {};
+            
+            if (Array.isArray(dados)) {
+                dados.forEach(item => {
+                    if (item.data && item.evento) {
+                        // Garantir que o evento é um objeto válido
+                        const evento = typeof item.evento === 'string' 
+                            ? JSON.parse(item.evento) 
+                            : item.evento || {};
+                        
+                        // Garantir que todas as propriedades existam
+                        if (!evento.producao) evento.producao = [];
+                        if (!evento.ingredientes) evento.ingredientes = [];
+                        if (!evento.vendas) evento.vendas = [];
+                        if (!evento.comprovantes) evento.comprovantes = [];
+                        if (!evento.eventName) evento.eventName = '';
+                        if (!evento.responsible) evento.responsible = '';
+                        if (!evento.notes) evento.notes = '';
+                        
+                        this.events[item.data] = evento;
+                    }
+                });
+            }
+            
+            console.log('Eventos processados:', this.events);
+            this.atualizarTotaisGerais();
+            
+        } catch (error) {
+            console.error('Erro ao carregar eventos:', error);
+            alert('Erro ao carregar dados do servidor. Usando dados locais.');
+            
+            const localData = localStorage.getItem('cantinaEvents');
+            this.events = localData ? JSON.parse(localData) : {};
+        }
+    },
 
     async salvarEventoNoSupabase(data, evento) {
         try {
+            console.log('Salvando evento no Supabase:', data);
+            
+            // Garantir que o evento é um objeto válido
+            const eventoParaSalvar = {
+                eventName: evento.eventName || '',
+                responsible: evento.responsible || '',
+                notes: evento.notes || '',
+                producao: Array.isArray(evento.producao) ? evento.producao : [],
+                ingredientes: Array.isArray(evento.ingredientes) ? evento.ingredientes : [],
+                vendas: Array.isArray(evento.vendas) ? evento.vendas : [],
+                comprovantes: Array.isArray(evento.comprovantes) ? evento.comprovantes : []
+            };
+            
+            console.log('Evento a ser salvo:', eventoParaSalvar);
+            
+            // Verificar se já existe
             const checkResponse = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
                 method: 'GET',
                 headers: headers
@@ -105,53 +140,49 @@ const App = {
             
             const existente = await checkResponse.json();
             
-            if (existente.length > 0) {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
+            let response;
+            
+            if (existente && existente.length > 0) {
+                // Atualizar existente
+                response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify({ 
-                        evento: evento,
+                        evento: eventoParaSalvar,
                         updated_at: new Date().toISOString()
                     })
                 });
-                
-                if (!response.ok) throw new Error('Erro ao atualizar');
+                console.log('Atualizando evento existente');
             } else {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+                // Inserir novo
+                response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify({ 
                         data: data,
-                        evento: evento,
+                        evento: eventoParaSalvar,
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
                     })
                 });
-                
-                if (!response.ok) throw new Error('Erro ao inserir');
+                console.log('Inserindo novo evento');
             }
             
-            console.log('Evento salvo no Supabase:', data);
+            if (!response.ok) {
+                const erro = await response.text();
+                console.error('Erro na resposta:', erro);
+                throw new Error(`Erro ${response.status}: ${erro}`);
+            }
             
-        } catch (error) {
-            console.error('Erro ao salvar no Supabase:', error);
+            console.log('✅ Evento salvo com sucesso!');
+            
+            // Backup no localStorage
             localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-        }
-    },
-
-    async removerEventoDoSupabase(data) {
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
-                method: 'DELETE',
-                headers: headers
-            });
-            
-            if (!response.ok) throw new Error('Erro ao remover');
-            
-            console.log('Evento removido do Supabase:', data);
             
         } catch (error) {
-            console.error('Erro ao remover do Supabase:', error);
+            console.error('❌ Erro ao salvar no Supabase:', error);
+            alert('Erro ao salvar no servidor: ' + error.message);
+            localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
         }
     },
 
@@ -162,9 +193,6 @@ const App = {
         const evento = this.events[data];
         
         await this.salvarEventoNoSupabase(data, evento);
-        localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-        
-        // Atualizar totais gerais
         this.atualizarTotaisGerais();
     },
 
@@ -228,9 +256,11 @@ const App = {
     },
 
     async abrirDia(dataKey) {
+        console.log('Abrindo dia:', dataKey);
         this.selectedDay = dataKey;
         
         if (!this.events[dataKey]) {
+            console.log('Criando novo evento para:', dataKey);
             this.events[dataKey] = {
                 eventName: '',
                 responsible: '',
@@ -258,6 +288,7 @@ const App = {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
         const evento = this.events[this.selectedDay];
+        console.log('Carregando dados do evento:', evento);
         
         document.getElementById('selectedEventName').innerHTML = evento.eventName || 'Novo Evento';
         document.getElementById('selectedResponsible').innerHTML = `👤 ${evento.responsible || 'Clique para editar'}`;
@@ -1130,90 +1161,99 @@ const App = {
     },
 
     async salvarVenda() {
-    if (!this.selectedDay) return;
+        if (!this.selectedDay) return;
 
-    const cliente = document.getElementById('vendaCliente').value;
-    const produtoId = document.getElementById('vendaProdutoId').value;
-    const quantidade = parseInt(document.getElementById('vendaQtd').value) || 0;
-    const valorUnit = parseFloat(document.getElementById('vendaValorUnit').value) || 0;
-    const formaPagamento = document.getElementById('vendaFormaPagamento').value;
-    const valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
-    const entrega = document.getElementById('vendaEntrega').value;
-    const observacoes = document.getElementById('vendaObs').value;
+        const cliente = document.getElementById('vendaCliente').value;
+        const produtoId = document.getElementById('vendaProdutoId').value;
+        const quantidade = parseInt(document.getElementById('vendaQtd').value) || 0;
+        const valorUnit = parseFloat(document.getElementById('vendaValorUnit').value) || 0;
+        const formaPagamento = document.getElementById('vendaFormaPagamento').value;
+        const valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
+        const entrega = document.getElementById('vendaEntrega').value;
+        const observacoes = document.getElementById('vendaObs').value;
 
-    if (!cliente) {
-        alert('Digite o nome do cliente!');
-        return;
-    }
-
-    if (!produtoId) {
-        alert('Selecione um produto!');
-        return;
-    }
-
-    const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
-    if (!produto) {
-        alert('Produto não encontrado!');
-        return;
-    }
-
-    // Garantir que vendido existe
-    if (produto.vendido === undefined) {
-        produto.vendido = 0;
-    }
-
-    const disponivel = produto.quantidade - produto.vendido;
-    if (quantidade > disponivel) {
-        alert(`Quantidade indisponível! Disponível: ${disponivel}`);
-        return;
-    }
-
-    if (quantidade <= 0) {
-        alert('Digite a quantidade!');
-        return;
-    }
-
-    if (!this.events[this.selectedDay].vendas) {
-        this.events[this.selectedDay].vendas = [];
-    }
-
-    const venda = {
-        id: this.vendaEditando || Date.now(),
-        cliente,
-        produtoId,
-        produtoNome: produto.nome,
-        quantidade,
-        valorUnit,
-        valorPago,
-        formaPagamento,
-        entrega,
-        observacoes,
-        data: new Date().toISOString()
-    };
-
-    if (this.vendaEditando) {
-        const index = this.events[this.selectedDay].vendas.findIndex(v => String(v.id) === String(this.vendaEditando));
-        if (index !== -1) {
-            // Se estiver editando, ajustar a quantidade vendida
-            const vendaAntiga = this.events[this.selectedDay].vendas[index];
-            produto.vendido = (produto.vendido || 0) - vendaAntiga.quantidade;
-            this.events[this.selectedDay].vendas[index] = venda;
+        if (!cliente) {
+            alert('Digite o nome do cliente!');
+            return;
         }
-    } else {
-        this.events[this.selectedDay].vendas.push(venda);
-    }
-    
-    // Atualizar quantidade vendida
-    produto.vendido = (produto.vendido || 0) + quantidade;
 
-    this.cancelarFormVenda();
-    this.atualizarListaProducao();
-    this.atualizarListaVendas();
-    this.atualizarResumoEvento();
-    this.atualizarSelectProdutos();
-    this.atualizarTotaisGerais();
-    await this.salvarDados();
-},
+        if (!produtoId) {
+            alert('Selecione um produto!');
+            return;
+        }
+
+        if (!this.events[this.selectedDay].producao) {
+            this.events[this.selectedDay].producao = [];
+        }
+
+        const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+        if (!produto) {
+            alert('Produto não encontrado!');
+            return;
+        }
+
+        if (produto.vendido === undefined) {
+            produto.vendido = 0;
+        }
+
+        const disponivel = produto.quantidade - produto.vendido;
+        if (quantidade > disponivel) {
+            alert(`Quantidade indisponível! Disponível: ${disponivel}`);
+            return;
+        }
+
+        if (quantidade <= 0) {
+            alert('Digite a quantidade!');
+            return;
+        }
+
+        if (!this.events[this.selectedDay].vendas) {
+            this.events[this.selectedDay].vendas = [];
+        }
+
+        const venda = {
+            id: this.vendaEditando || Date.now(),
+            cliente,
+            produtoId,
+            produtoNome: produto.nome,
+            quantidade,
+            valorUnit,
+            valorPago,
+            formaPagamento,
+            entrega,
+            observacoes,
+            data: new Date().toISOString()
+        };
+
+        console.log('Salvando venda:', venda);
+
+        if (this.vendaEditando) {
+            const index = this.events[this.selectedDay].vendas.findIndex(v => String(v.id) === String(this.vendaEditando));
+            if (index !== -1) {
+                const vendaAntiga = this.events[this.selectedDay].vendas[index];
+                produto.vendido = (produto.vendido || 0) - vendaAntiga.quantidade;
+                this.events[this.selectedDay].vendas[index] = venda;
+            } else {
+                this.events[this.selectedDay].vendas.push(venda);
+            }
+        } else {
+            this.events[this.selectedDay].vendas.push(venda);
+        }
+        
+        produto.vendido = (produto.vendido || 0) + quantidade;
+
+        this.cancelarFormVenda();
+        this.atualizarListaProducao();
+        this.atualizarListaVendas();
+        this.atualizarResumoEvento();
+        this.atualizarSelectProdutos();
+        this.atualizarTotaisGerais();
+        
+        await this.salvarDados();
+        
+        console.log('Venda salva com sucesso');
+        console.log('Evento atual:', this.events[this.selectedDay]);
+    },
 
     atualizarListaVendas() {
         if (!this.selectedDay || !this.events[this.selectedDay]) return;
@@ -1329,74 +1369,69 @@ const App = {
     },
 
     async removerVenda(id) {
-    if (confirm('Remover esta venda?')) {
-        const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
-        if (venda) {
-            const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(venda.produtoId));
-            if (produto) {
-                produto.vendido = Math.max(0, (produto.vendido || 0) - venda.quantidade);
+        if (confirm('Remover esta venda?')) {
+            const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+            if (venda) {
+                const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(venda.produtoId));
+                if (produto) {
+                    produto.vendido = Math.max(0, (produto.vendido || 0) - venda.quantidade);
+                }
             }
+            
+            this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => String(v.id) !== String(id));
+            this.atualizarListaProducao();
+            this.atualizarListaVendas();
+            this.atualizarResumoEvento();
+            this.atualizarSelectProdutos();
+            this.atualizarTotaisGerais();
+            await this.salvarDados();
         }
-        
-        this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => String(v.id) !== String(id));
-        this.atualizarListaProducao();
-        this.atualizarListaVendas();
-        this.atualizarResumoEvento();
-        this.atualizarSelectProdutos();
-        this.atualizarTotaisGerais();
-        await this.salvarDados();
-    }
-},
+    },
 
     // ========== TOTAIS GERAIS ==========
-atualizarTotaisGerais() {
-    let totalVendasHoje = 0;
-    let totalVendasGeral = 0;
-    let totalRecebidoGeral = 0;
-    let totalCustosGeral = 0;
+    atualizarTotaisGerais() {
+        let totalVendasHoje = 0;
+        let totalVendasGeral = 0;
+        let totalRecebidoGeral = 0;
+        let totalCustosGeral = 0;
 
-    // Data de hoje no mesmo formato das chaves do events (YYYY-MM-DD)
-    const hoje = new Date();
-    const hojeKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+        const hoje = new Date();
+        const hojeKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
 
-    Object.entries(this.events).forEach(([dataKey, evento]) => {
-        // Calcular vendas
-        if (evento.vendas && Array.isArray(evento.vendas)) {
-            evento.vendas.forEach(venda => {
-                const valorTotal = venda.quantidade * venda.valorUnit;
-                totalVendasGeral += valorTotal;
-                totalRecebidoGeral += venda.valorPago || 0;
-                
-                // Verificar se é venda de hoje comparando a chave da data
-                if (dataKey === hojeKey) {
-                    totalVendasHoje += valorTotal;
-                }
-            });
-        }
-        
-        // Calcular custos
-        if (evento.ingredientes && Array.isArray(evento.ingredientes)) {
-            evento.ingredientes.forEach(ing => {
-                if (!ing.doacao) {
-                    totalCustosGeral += ing.valorTotal || 0;
-                }
-            });
-        }
-    });
+        Object.entries(this.events).forEach(([dataKey, evento]) => {
+            if (evento.vendas && Array.isArray(evento.vendas)) {
+                evento.vendas.forEach(venda => {
+                    const valorTotal = venda.quantidade * venda.valorUnit;
+                    totalVendasGeral += valorTotal;
+                    totalRecebidoGeral += venda.valorPago || 0;
+                    
+                    if (dataKey === hojeKey) {
+                        totalVendasHoje += valorTotal;
+                    }
+                });
+            }
+            
+            if (evento.ingredientes && Array.isArray(evento.ingredientes)) {
+                evento.ingredientes.forEach(ing => {
+                    if (!ing.doacao) {
+                        totalCustosGeral += ing.valorTotal || 0;
+                    }
+                });
+            }
+        });
 
-    const liquidoGeral = totalRecebidoGeral - totalCustosGeral;
+        const liquidoGeral = totalRecebidoGeral - totalCustosGeral;
 
-    // Atualizar os elementos HTML
-    const vendasHojeEl = document.getElementById('resumoVendasHoje');
-    const vendasGeralEl = document.getElementById('resumoVendasGeral');
-    const recebidoGeralEl = document.getElementById('resumoRecebidoGeral');
-    const liquidoEl = document.getElementById('resumoLiquido');
+        const vendasHojeEl = document.getElementById('resumoVendasHoje');
+        const vendasGeralEl = document.getElementById('resumoVendasGeral');
+        const recebidoGeralEl = document.getElementById('resumoRecebidoGeral');
+        const liquidoEl = document.getElementById('resumoLiquido');
 
-    if (vendasHojeEl) vendasHojeEl.innerHTML = `R$ ${totalVendasHoje.toFixed(2)}`;
-    if (vendasGeralEl) vendasGeralEl.innerHTML = `R$ ${totalVendasGeral.toFixed(2)}`;
-    if (recebidoGeralEl) recebidoGeralEl.innerHTML = `R$ ${totalRecebidoGeral.toFixed(2)}`;
-    if (liquidoEl) liquidoEl.innerHTML = `R$ ${liquidoGeral.toFixed(2)}`;
-},
+        if (vendasHojeEl) vendasHojeEl.innerHTML = `R$ ${totalVendasHoje.toFixed(2)}`;
+        if (vendasGeralEl) vendasGeralEl.innerHTML = `R$ ${totalVendasGeral.toFixed(2)}`;
+        if (recebidoGeralEl) recebidoGeralEl.innerHTML = `R$ ${totalRecebidoGeral.toFixed(2)}`;
+        if (liquidoEl) liquidoEl.innerHTML = `R$ ${liquidoGeral.toFixed(2)}`;
+    },
 
     // ========== RELATÓRIOS ==========
     atualizarRelatorioEvento() {
@@ -1415,7 +1450,6 @@ atualizarTotaisGerais() {
         const itensComprados = ingredientes.filter(item => item.comprado).length;
         const itensSemValor = ingredientes.filter(item => (item.valorTotal === 0 || !item.valorTotal) && !item.doacao).length;
         
-        // Estatísticas de produção
         const totalProduzido = producao.reduce((acc, item) => acc + item.quantidade, 0);
         const totalVendidos = producao.reduce((acc, item) => acc + (item.vendido || 0), 0);
         const totalRestantes = totalProduzido - totalVendidos;
@@ -1457,7 +1491,6 @@ atualizarTotaisGerais() {
         document.getElementById('relAReceber').innerHTML = `R$ ${aReceber.toFixed(2)}`;
         document.getElementById('relEntregues').innerHTML = `${totalEntregues} de ${vendas.length}`;
         
-        // Novos campos de produção
         document.getElementById('relItensProduzidos').innerHTML = totalProduzido;
         document.getElementById('relItensVendidos').innerHTML = totalVendidos;
         document.getElementById('relItensRestantes').innerHTML = totalRestantes;
