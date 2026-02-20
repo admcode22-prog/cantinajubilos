@@ -1,11 +1,24 @@
-// Configuração do Supabase
+// Configuração do Supabase - VERIFIQUE SE ESTAS CHAVES ESTÃO CORRETAS!
 const SUPABASE_URL = 'https://uqfznchyfcidyqlqauua.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_covwt0qpmNmdoRy8oGVdng_kgSdCGBT';
+// IMPORTANTE: Esta chave parece ser uma publishable key. Você precisa usar a anon key do Supabase!
+// A anon key normalmente começa com "eyJ..." e é diferente da publishable key
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxZnpuY2h5ZmNpZHlxbHFhdXVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5OTI4NzUsImV4cCI6MjA4NjU2ODg3NX0.eGvAs-vgw96PYp0xqtrt4NieEcUE36WdfP9r8h22Jd0';
 
+// Headers para as requisições
 const headers = {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Prefer': 'return=representation'
+};
+
+// Nomes das tabelas no Supabase
+const TABLES = {
+    EVENTOS: 'eventos',
+    PRODUCAO: 'producao',
+    INGREDIENTES: 'ingredientes',
+    VENDAS: 'vendas',
+    COMPROVANTES: 'comprovantes'
 };
 
 const App = {
@@ -27,6 +40,7 @@ const App = {
         this.atualizarHeader();
         this.gerarCalendario();
         
+        // Event listeners
         const vendaQtd = document.getElementById('vendaQtd');
         const vendaProdutoId = document.getElementById('vendaProdutoId');
         const vendaValorPago = document.getElementById('vendaValorPago');
@@ -65,101 +79,240 @@ const App = {
 
     async carregarEventos() {
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+            console.log('Carregando eventos do Supabase...');
+            
+            // Buscar eventos
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.EVENTOS}?order=created_at.desc`, {
                 method: 'GET',
-                headers: headers
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
             });
             
-            if (!response.ok) throw new Error('Erro ao carregar eventos');
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Erro ao carregar eventos:', response.status, errorText);
+                throw new Error(`Erro ao carregar eventos: ${response.status}`);
+            }
             
-            const dados = await response.json();
+            const eventos = await response.json();
+            console.log('Eventos carregados:', eventos);
             
             this.events = {};
-            dados.forEach(item => {
-                this.events[item.data] = item.evento;
-            });
             
-            console.log('Eventos carregados:', this.events);
+            // Para cada evento, buscar seus dados relacionados
+            for (const evento of eventos) {
+                const data = evento.data;
+                
+                try {
+                    // Buscar produção
+                    const producaoRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?evento_id=eq.${evento.id}&select=*`,
+                        { 
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                            }
+                        }
+                    );
+                    const producao = producaoRes.ok ? await producaoRes.json() : [];
+                    
+                    // Buscar comprovantes
+                    const comprovantesRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/${TABLES.COMPROVANTES}?evento_id=eq.${evento.id}&select=*`,
+                        { 
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                            }
+                        }
+                    );
+                    const comprovantes = comprovantesRes.ok ? await comprovantesRes.json() : [];
+                    
+                    // Buscar ingredientes
+                    const ingredientesRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?evento_id=eq.${evento.id}&select=*`,
+                        { 
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                            }
+                        }
+                    );
+                    const ingredientes = ingredientesRes.ok ? await ingredientesRes.json() : [];
+                    
+                    // Buscar vendas
+                    const vendasRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?evento_id=eq.${evento.id}&select=*`,
+                        { 
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                            }
+                        }
+                    );
+                    const vendas = vendasRes.ok ? await vendasRes.json() : [];
+                    
+                    this.events[data] = {
+                        id: evento.id,
+                        eventName: evento.eventName || '',
+                        responsible: evento.responsible || '',
+                        notes: evento.notes || '',
+                        producao: producao || [],
+                        comprovantes: comprovantes || [],
+                        ingredientes: ingredientes || [],
+                        vendas: vendas || []
+                    };
+                } catch (error) {
+                    console.error(`Erro ao carregar dados relacionados do evento ${data}:`, error);
+                    this.events[data] = {
+                        id: evento.id,
+                        eventName: evento.eventName || '',
+                        responsible: evento.responsible || '',
+                        notes: evento.notes || '',
+                        producao: [],
+                        comprovantes: [],
+                        ingredientes: [],
+                        vendas: []
+                    };
+                }
+            }
+            
+            console.log('Eventos processados:', this.events);
+            
+            // Backup local
+            localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
             
         } catch (error) {
             console.error('Erro ao carregar eventos:', error);
-            alert('Erro ao carregar dados do servidor. Usando dados locais.');
             
+            // Fallback para dados locais
             const localData = localStorage.getItem('cantinaEvents');
-            this.events = localData ? JSON.parse(localData) : {};
+            if (localData) {
+                try {
+                    this.events = JSON.parse(localData);
+                    alert('Usando dados offline. Verifique sua conexão com o Supabase.');
+                } catch (e) {
+                    console.error('Erro ao carregar dados locais:', e);
+                    this.events = {};
+                }
+            } else {
+                this.events = {};
+            }
         }
     },
 
-    async salvarEventoNoSupabase(data, evento) {
-        try {
-            const checkResponse = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
+    async getOrCreateEventoId(data) {
+    try {
+        console.log('🔍 Buscando evento para data:', data);
+        
+        // Verificar no Supabase
+        const checkResponse = await fetch(
+            `${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}&select=id`,
+            { 
                 method: 'GET',
-                headers: headers
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            }
+        );
+        
+        if (!checkResponse.ok) {
+            console.error('Erro na consulta:', checkResponse.status);
+            return null;
+        }
+        
+        const existente = await checkResponse.json();
+        console.log('Eventos encontrados:', existente);
+        
+        if (existente && existente.length > 0) {
+            console.log('✅ Evento existente ID:', existente[0].id);
+            return existente[0].id;
+        }
+        
+        // Se não existir, criar novo
+        console.log('➕ Criando novo evento para:', data);
+        
+        const novoEvento = {
+            data: data,
+            eventName: '',
+            responsible: '',
+            notes: ''
+        };
+        
+        const createResponse = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(novoEvento)
+        });
+        
+        if (!createResponse.ok) {
+            const errorText = await createResponse.text();
+            console.error('Erro ao criar:', createResponse.status, errorText);
+            return null;
+        }
+        
+        const criado = await createResponse.json();
+        console.log('✅ Evento criado:', criado);
+        
+        // Retornar o ID do evento criado
+        if (Array.isArray(criado) && criado.length > 0) {
+            return criado[0].id;
+        } else if (criado && criado.id) {
+            return criado.id;
+        } else {
+            console.error('Resposta inesperada:', criado);
+            return null;
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro:', error);
+        return null;
+    }
+},
+
+    async atualizarEventoNoSupabase(data, campos) {
+        try {
+            const eventoId = await this.getOrCreateEventoId(data);
+            if (!eventoId) throw new Error('Evento não encontrado');
+            
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.EVENTOS}?id=eq.${eventoId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    ...campos,
+                    updated_at: new Date().toISOString()
+                })
             });
             
-            const existente = await checkResponse.json();
-            
-            if (existente.length > 0) {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
-                    method: 'PATCH',
-                    headers: headers,
-                    body: JSON.stringify({ 
-                        evento: evento,
-                        updated_at: new Date().toISOString()
-                    })
-                });
-                
-                if (!response.ok) throw new Error('Erro ao atualizar');
-            } else {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ 
-                        data: data,
-                        evento: evento,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    })
-                });
-                
-                if (!response.ok) throw new Error('Erro ao inserir');
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Erro ao atualizar evento:', errorText);
+                throw new Error('Erro ao atualizar evento');
             }
             
-            console.log('Evento salvo no Supabase:', data);
+            // Atualizar objeto local
+            if (this.events[data]) {
+                this.events[data] = { ...this.events[data], ...campos, id: eventoId };
+            }
             
-        } catch (error) {
-            console.error('Erro ao salvar no Supabase:', error);
             localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-        }
-    },
-
-    async removerEventoDoSupabase(data) {
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
-                method: 'DELETE',
-                headers: headers
-            });
-            
-            if (!response.ok) throw new Error('Erro ao remover');
-            
-            console.log('Evento removido do Supabase:', data);
             
         } catch (error) {
-            console.error('Erro ao remover do Supabase:', error);
+            console.error('Erro ao atualizar evento:', error);
+            throw error;
         }
-    },
-
-    async salvarDados() {
-        if (!this.selectedDay) return;
-        
-        const data = this.selectedDay;
-        const evento = this.events[data];
-        
-        await this.salvarEventoNoSupabase(data, evento);
-        localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
-        
-        // Atualizar totais gerais
-        this.atualizarTotaisGerais();
     },
 
     atualizarHeader() {
@@ -222,6 +375,7 @@ const App = {
     },
 
     async abrirDia(dataKey) {
+        this.mostrarLoading();
         this.selectedDay = dataKey;
         
         if (!this.events[dataKey]) {
@@ -235,7 +389,8 @@ const App = {
                 comprovantes: []
             };
             
-            await this.salvarEventoNoSupabase(dataKey, this.events[dataKey]);
+            // Criar evento no Supabase
+            await this.getOrCreateEventoId(dataKey);
         }
 
         const [ano, mes, dia] = dataKey.split('-');
@@ -246,6 +401,7 @@ const App = {
         document.getElementById('calendarSection').classList.add('hidden');
         document.getElementById('managementSection').classList.remove('hidden');
         this.mudarAba('evento');
+        this.esconderLoading();
     },
 
     carregarDadosEvento() {
@@ -307,7 +463,6 @@ const App = {
         } else if (aba === 'vendas') {
             document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
             document.getElementById('tabVendas').classList.add('active');
-            this.atualizarTotaisGerais();
         } else if (aba === 'relatorio') {
             document.querySelector('.tab-btn:nth-child(4)').classList.add('active');
             document.getElementById('tabRelatorio').classList.add('active');
@@ -316,12 +471,57 @@ const App = {
     },
 
     async salvarEvento() {
-        if (!this.selectedDay) return;
+    if (!this.selectedDay) {
+        alert('Nenhum dia selecionado!');
+        return;
+    }
 
-        const eventName = document.getElementById('eventName').value;
-        const responsible = document.getElementById('responsible').value;
-        const notes = document.getElementById('notes').value;
+    const eventName = document.getElementById('eventName').value;
+    const responsible = document.getElementById('responsible').value;
+    const notes = document.getElementById('notes').value;
 
+    try {
+        this.mostrarLoading();
+        
+        console.log('Salvando evento para data:', this.selectedDay);
+        
+        // Primeiro, garantir que o evento existe
+        const eventoId = await this.getOrCreateEventoId(this.selectedDay);
+        console.log('Evento ID obtido:', eventoId);
+        
+        if (!eventoId) {
+            throw new Error('Não foi possível obter/criar o evento');
+        }
+
+        // Atualizar o evento
+        const updateData = {
+            eventName: eventName,
+            responsible: responsible,
+            notes: notes,
+            updated_at: new Date().toISOString()
+        };
+        
+        console.log('Atualizando evento ID', eventoId, 'com dados:', updateData);
+
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/eventos?id=eq.${eventoId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify(updateData)
+        });
+
+        console.log('Resposta do Supabase (PATCH):', response.status);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Erro na resposta do Supabase (PATCH):', errorText);
+            throw new Error(`Erro ao atualizar evento: ${response.status}`);
+        }
+
+        // Atualizar objeto local
         if (!this.events[this.selectedDay]) {
             this.events[this.selectedDay] = {
                 producao: [],
@@ -330,25 +530,40 @@ const App = {
                 comprovantes: []
             };
         }
-
+        
+        this.events[this.selectedDay].id = eventoId;
         this.events[this.selectedDay].eventName = eventName;
         this.events[this.selectedDay].responsible = responsible;
         this.events[this.selectedDay].notes = notes;
 
+        // Backup local
+        localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
+
+        // Atualizar UI
         document.getElementById('selectedEventName').innerHTML = eventName || 'Novo Evento';
         document.getElementById('selectedResponsible').innerHTML = `👤 ${responsible || 'Clique para editar'}`;
 
-        await this.salvarDados();
-
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span>✅</span> Salvo!';
-        btn.style.background = '#10b981';
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-            btn.style.background = '';
-        }, 1500);
-    },
+        // Feedback visual - AGORA SEM USAR event.target
+        const btn = document.querySelector('.btn-primary[onclick="app.salvarEvento()"]');
+        if (btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span>✅</span> Salvo!';
+            btn.style.background = '#10b981';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+            }, 1500);
+        }
+        
+        console.log('Evento salvo com sucesso!');
+        
+    } catch (error) {
+        console.error('Erro detalhado ao salvar evento:', error);
+        alert(`Erro ao salvar evento: ${error.message}`);
+    } finally {
+        this.esconderLoading();
+    }
+},
 
     // ========== PRODUÇÃO ==========
     mostrarFormProducao(producaoId = null) {
@@ -384,51 +599,92 @@ const App = {
     async salvarProducao() {
         if (!this.selectedDay) return;
 
-        const id = document.getElementById('producaoEditId').value || Date.now();
+        const id = document.getElementById('producaoEditId').value;
         const nome = document.getElementById('producaoNome').value;
         const quantidade = parseInt(document.getElementById('producaoQuantidade').value) || 0;
         const valor = parseFloat(document.getElementById('producaoValor').value) || 0;
 
-        if (!nome) {
-            alert('Digite o nome do prato!');
+        if (!nome || quantidade <= 0 || valor <= 0) {
+            alert('Preencha todos os campos corretamente!');
             return;
         }
 
-        if (quantidade <= 0) {
-            alert('Digite a quantidade produzida!');
-            return;
-        }
+        try {
+            this.mostrarLoading();
+            
+            const eventoId = await this.getOrCreateEventoId(this.selectedDay);
+            if (!eventoId) throw new Error('Erro ao obter evento');
 
-        if (valor <= 0) {
-            alert('Digite o valor de venda!');
-            return;
-        }
+            const producaoData = {
+                evento_id: eventoId,
+                nome: nome,
+                quantidade: quantidade,
+                valor: valor,
+                vendido: 0
+            };
 
-        if (!this.events[this.selectedDay].producao) {
-            this.events[this.selectedDay].producao = [];
-        }
-
-        const item = {
-            id,
-            nome,
-            quantidade,
-            valor,
-            vendido: 0
-        };
-
-        if (this.producaoEditando) {
-            const index = this.events[this.selectedDay].producao.findIndex(p => String(p.id) === String(this.producaoEditando));
-            if (index !== -1) {
-                this.events[this.selectedDay].producao[index] = item;
+            if (this.producaoEditando) {
+                // Atualizar
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${this.producaoEditando}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify(producaoData)
+                });
+            } else {
+                // Criar novo
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(producaoData)
+                });
             }
-        } else {
-            this.events[this.selectedDay].producao.push(item);
-        }
 
-        this.cancelarFormProducao();
-        this.atualizarListaProducao();
-        this.atualizarSelectProdutos();
-        await this.salvarDados();
+            // Recarregar dados
+            await this.carregarEventos();
+            
+            this.cancelarFormProducao();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao salvar produção:', error);
+            alert('Erro ao salvar no banco de dados');
+        } finally {
+            this.esconderLoading();
+        }
+    },
+
+    async removerProducao(id) {
+        if (!confirm('Remover este prato?')) return;
+
+        try {
+            this.mostrarLoading();
+            
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            });
+            
+            await this.carregarEventos();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao remover produção:', error);
+            alert('Erro ao remover item!');
+        } finally {
+            this.esconderLoading();
+        }
     },
 
     atualizarListaProducao() {
@@ -469,15 +725,6 @@ const App = {
         document.getElementById('totalItensProducao').innerHTML = totalItens;
     },
 
-    async removerProducao(id) {
-        if (confirm('Remover este prato?')) {
-            this.events[this.selectedDay].producao = this.events[this.selectedDay].producao.filter(p => String(p.id) !== String(id));
-            this.atualizarListaProducao();
-            this.atualizarSelectProdutos();
-            await this.salvarDados();
-        }
-    },
-
     atualizarSelectProdutos() {
         const select = document.getElementById('vendaProdutoId');
         if (!select) return;
@@ -516,7 +763,7 @@ const App = {
         }
     },
 
-    // ========== CUSTOS ==========
+    // ========== INGREDIENTES ==========
     mostrarFormIngrediente(ingredienteId = null) {
         this.ingredienteEditando = ingredienteId;
         const modalTitle = document.getElementById('ingredienteModalTitle');
@@ -537,8 +784,8 @@ const App = {
                 document.getElementById('ingredienteComprado').checked = ingrediente.comprado || false;
                 document.getElementById('ingredienteDoacao').checked = ingrediente.doacao || false;
                 
-                if (ingrediente.comprovanteId) {
-                    document.getElementById('ingredienteComprovanteId').value = ingrediente.comprovanteId;
+                if (ingrediente.comprovante_id) {
+                    document.getElementById('ingredienteComprovanteId').value = ingrediente.comprovante_id;
                 }
             }
         } else {
@@ -595,7 +842,7 @@ const App = {
     async salvarIngrediente() {
         if (!this.selectedDay) return;
 
-        const id = document.getElementById('ingredienteEditId').value || Date.now();
+        const id = document.getElementById('ingredienteEditId').value;
         const nome = document.getElementById('ingredienteNome').value;
         const quantidade = parseFloat(document.getElementById('ingredienteQtd').value) || 0;
         const unidade = document.getElementById('ingredienteUnidade').value;
@@ -604,47 +851,118 @@ const App = {
         const doacao = document.getElementById('ingredienteDoacao').checked;
         const comprovanteId = document.getElementById('ingredienteComprovanteId').value || null;
 
-        if (!nome) {
-            alert('Digite o nome do ingrediente!');
+        if (!nome || quantidade <= 0) {
+            alert('Preencha todos os campos corretamente!');
             return;
         }
 
-        if (quantidade <= 0) {
-            alert('Digite a quantidade!');
-            return;
-        }
+        try {
+            this.mostrarLoading();
+            
+            const eventoId = await this.getOrCreateEventoId(this.selectedDay);
+            if (!eventoId) throw new Error('Erro ao obter evento');
 
-        if (!this.events[this.selectedDay].ingredientes) {
-            this.events[this.selectedDay].ingredientes = [];
-        }
+            const ingredienteData = {
+                evento_id: eventoId,
+                nome: nome,
+                quantidade: quantidade,
+                unidade: unidade,
+                valorTotal: valorTotal,
+                comprado: comprado,
+                doacao: doacao,
+                comprovante_id: comprovanteId
+            };
 
-        const ingrediente = {
-            id: id,
-            nome: nome,
-            quantidade: quantidade,
-            unidade: unidade,
-            valorTotal: valorTotal,
-            comprado: comprado,
-            doacao: doacao,
-            comprovanteId: comprovanteId
-        };
-
-        if (this.ingredienteEditando) {
-            const index = this.events[this.selectedDay].ingredientes.findIndex(i => String(i.id) === String(this.ingredienteEditando));
-            if (index !== -1) {
-                this.events[this.selectedDay].ingredientes[index] = ingrediente;
+            if (this.ingredienteEditando) {
+                // Atualizar
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?id=eq.${this.ingredienteEditando}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify(ingredienteData)
+                });
             } else {
-                this.events[this.selectedDay].ingredientes.push(ingrediente);
+                // Criar novo
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(ingredienteData)
+                });
             }
-        } else {
-            this.events[this.selectedDay].ingredientes.push(ingrediente);
-        }
 
-        this.cancelarFormIngrediente();
-        this.atualizarListaIngredientes();
-        this.atualizarListaComprovantes();
-        this.atualizarResumoEvento();
-        await this.salvarDados();
+            // Recarregar dados
+            await this.carregarEventos();
+            
+            this.cancelarFormIngrediente();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao salvar ingrediente:', error);
+            alert('Erro ao salvar no banco de dados');
+        } finally {
+            this.esconderLoading();
+        }
+    },
+
+    async removerIngrediente(id) {
+        if (!confirm('Remover este ingrediente?')) return;
+
+        try {
+            this.mostrarLoading();
+            
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            });
+            
+            await this.carregarEventos();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao remover ingrediente:', error);
+            alert('Erro ao remover item!');
+        } finally {
+            this.esconderLoading();
+        }
+    },
+
+    async toggleCompradoIngrediente(id) {
+        try {
+            this.mostrarLoading();
+            
+            const ingrediente = this.events[this.selectedDay].ingredientes.find(i => String(i.id) === String(id));
+            if (ingrediente) {
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?id=eq.${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ comprado: !ingrediente.comprado })
+                });
+                
+                await this.carregarEventos();
+                this.carregarDadosEvento();
+            }
+            
+        } catch (error) {
+            console.error('Erro ao atualizar ingrediente:', error);
+            alert('Erro ao atualizar!');
+        } finally {
+            this.esconderLoading();
+        }
     },
 
     atualizarListaIngredientes() {
@@ -657,17 +975,16 @@ const App = {
         ingredientes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
         ingredientes.forEach((item) => {
-            const itemId = item.id || Date.now() + Math.random();
             const compradoClass = item.comprado ? 'comprado' : '';
             const compradoText = item.comprado ? '✅' : '⏳';
             
             const valorDisplay = item.valorTotal > 0 ? `R$ ${item.valorTotal.toFixed(2)}` : '💰 A definir';
             
-            const temComprovante = item.comprovanteId ? true : false;
-            const comprovante = temComprovante ? comprovantes.find(c => String(c.id) === String(item.comprovanteId)) : null;
+            const temComprovante = item.comprovante_id ? true : false;
+            const comprovante = temComprovante ? comprovantes.find(c => String(c.id) === String(item.comprovante_id)) : null;
             
             html += `
-                <div class="item-card ${compradoClass}" data-id="${itemId}" style="${item.comprado ? 'opacity: 0.8;' : ''}">
+                <div class="item-card ${compradoClass}" data-id="${item.id}" style="${item.comprado ? 'opacity: 0.8;' : ''}">
                     <div class="item-info">
                         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             <span class="item-name">${item.nome || 'Sem nome'}</span>
@@ -680,20 +997,20 @@ const App = {
                         ${temComprovante ? `
                             <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
                                 <span class="item-details" style="color: var(--primary);">📎 ${comprovante?.nome || 'Comprovante'}</span>
-                                <button class="btn-icon" style="background: var(--primary); width: 24px; height: 24px; font-size: 0.8rem;" onclick="app.verComprovanteDoIngrediente('${item.comprovanteId}')" title="Ver comprovante">
+                                <button class="btn-icon" style="background: var(--primary); width: 24px; height: 24px; font-size: 0.8rem;" onclick="app.verComprovanteDoIngrediente('${item.comprovante_id}')" title="Ver comprovante">
                                     👁️
                                 </button>
                             </div>
                         ` : ''}
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <button class="btn-icon" style="background: var(--success);" onclick="app.toggleCompradoIngrediente('${itemId}')" title="Marcar como comprado">
+                        <button class="btn-icon" style="background: var(--success);" onclick="app.toggleCompradoIngrediente('${item.id}')" title="Marcar como comprado">
                             ${compradoText}
                         </button>
-                        <button class="btn-icon" style="background: var(--primary);" onclick="app.mostrarFormIngrediente('${itemId}')" title="Editar">
+                        <button class="btn-icon" style="background: var(--primary);" onclick="app.mostrarFormIngrediente('${item.id}')" title="Editar">
                             ✏️
                         </button>
-                        <button class="btn-icon" style="background: var(--danger);" onclick="app.removerIngrediente('${itemId}')" title="Remover">
+                        <button class="btn-icon" style="background: var(--danger);" onclick="app.removerIngrediente('${item.id}')" title="Remover">
                             🗑️
                         </button>
                     </div>
@@ -709,25 +1026,6 @@ const App = {
         
         const comprovante = this.events[this.selectedDay].comprovantes.find(c => String(c.id) === String(comprovanteId));
         this.mostrarComprovanteEmJanela(comprovante);
-    },
-
-    async toggleCompradoIngrediente(id) {
-        const ingrediente = this.events[this.selectedDay].ingredientes.find(i => String(i.id) === String(id));
-        if (ingrediente) {
-            ingrediente.comprado = !ingrediente.comprado;
-            this.atualizarListaIngredientes();
-            await this.salvarDados();
-        }
-    },
-
-    async removerIngrediente(id) {
-        if (confirm('Remover este ingrediente?')) {
-            this.events[this.selectedDay].ingredientes = this.events[this.selectedDay].ingredientes.filter(i => String(i.id) !== String(id));
-            this.atualizarListaIngredientes();
-            this.atualizarListaComprovantes();
-            this.atualizarResumoEvento();
-            await this.salvarDados();
-        }
     },
 
     // ========== COMPROVANTES ==========
@@ -753,7 +1051,7 @@ const App = {
                 
                 const ingredientes = this.events[this.selectedDay].ingredientes || [];
                 this.ingredientesSelecionados = ingredientes
-                    .filter(i => String(i.comprovanteId) === String(comprovante.id))
+                    .filter(i => String(i.comprovante_id) === String(comprovante.id))
                     .map(i => String(i.id));
             }
         }
@@ -841,7 +1139,7 @@ const App = {
     async salvarComprovante() {
         if (!this.selectedDay) return;
 
-        const id = document.getElementById('comprovanteEditId').value || Date.now();
+        const id = document.getElementById('comprovanteEditId').value;
         const nome = document.getElementById('comprovanteNome').value;
         const data = document.getElementById('comprovanteData').value;
         const valorTotal = parseFloat(document.getElementById('comprovanteValor').value) || 0;
@@ -861,50 +1159,136 @@ const App = {
             return;
         }
 
-        if (!this.events[this.selectedDay].comprovantes) {
-            this.events[this.selectedDay].comprovantes = [];
-        }
-
-        const comprovante = {
-            id,
-            nome,
-            data,
-            valorTotal,
-            imagem: imagem || (this.comprovanteEditando ? 
-                this.events[this.selectedDay].comprovantes.find(c => String(c.id) === String(this.comprovanteEditando))?.imagem : null)
-        };
-
-        if (this.comprovanteEditando) {
-            const index = this.events[this.selectedDay].comprovantes.findIndex(c => String(c.id) === String(this.comprovanteEditando));
-            if (index !== -1) {
-                this.events[this.selectedDay].comprovantes[index] = comprovante;
-            }
-        } else {
-            this.events[this.selectedDay].comprovantes.push(comprovante);
-        }
-
-        if (this.events[this.selectedDay].ingredientes) {
-            if (this.comprovanteEditando) {
-                this.events[this.selectedDay].ingredientes.forEach(item => {
-                    if (String(item.comprovanteId) === String(this.comprovanteEditando)) {
-                        item.comprovanteId = null;
-                    }
-                });
-            }
+        try {
+            this.mostrarLoading();
             
-            this.events[this.selectedDay].ingredientes.forEach(item => {
-                if (this.ingredientesSelecionados.includes(String(item.id))) {
-                    item.comprovanteId = id;
+            const eventoId = await this.getOrCreateEventoId(this.selectedDay);
+            if (!eventoId) throw new Error('Erro ao obter evento');
+
+            const comprovanteData = {
+                evento_id: eventoId,
+                nome: nome,
+                data: data,
+                valorTotal: valorTotal,
+                imagem: imagem || (this.comprovanteEditando ? 
+                    this.events[this.selectedDay].comprovantes.find(c => String(c.id) === String(this.comprovanteEditando))?.imagem : null)
+            };
+
+            let comprovanteId = id;
+
+            if (this.comprovanteEditando) {
+                // Atualizar
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.COMPROVANTES}?id=eq.${this.comprovanteEditando}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify(comprovanteData)
+                });
+                comprovanteId = this.comprovanteEditando;
+            } else {
+                // Criar novo
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.COMPROVANTES}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(comprovanteData)
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro ao criar comprovante:', errorText);
+                    throw new Error('Erro ao criar comprovante');
+                }
+                
+                const novoComprovante = await response.json();
+                comprovanteId = Array.isArray(novoComprovante) ? novoComprovante[0].id : novoComprovante.id;
+            }
+
+            // Atualizar ingredientes selecionados
+            if (this.ingredientesSelecionados.length > 0) {
+                // Primeiro, remover vínculo dos ingredientes que estavam neste comprovante
+                if (this.comprovanteEditando) {
+                    await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?comprovante_id=eq.${this.comprovanteEditando}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ comprovante_id: null })
+                    });
+                }
+                
+                // Vincular ingredientes selecionados
+                for (const ingId of this.ingredientesSelecionados) {
+                    await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?id=eq.${ingId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ comprovante_id: comprovanteId })
+                    });
+                }
+            }
+
+            // Recarregar dados
+            await this.carregarEventos();
+            
+            this.cancelarFormComprovante();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao salvar comprovante:', error);
+            alert('Erro ao salvar no banco de dados');
+        } finally {
+            this.esconderLoading();
+        }
+    },
+
+    async removerComprovante(id) {
+        if (!confirm('Remover este comprovante? Os itens vinculados serão desvinculados.')) return;
+
+        try {
+            this.mostrarLoading();
+            
+            // Desvincular ingredientes
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.INGREDIENTES}?comprovante_id=eq.${id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({ comprovante_id: null })
+            });
+            
+            // Remover comprovante
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.COMPROVANTES}?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
                 }
             });
+            
+            await this.carregarEventos();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao remover comprovante:', error);
+            alert('Erro ao remover comprovante!');
+        } finally {
+            this.esconderLoading();
         }
-
-        this.cancelarFormComprovante();
-        this.atualizarListaIngredientes();
-        this.atualizarListaComprovantes();
-        this.atualizarSelectComprovantes();
-        this.atualizarResumoEvento();
-        await this.salvarDados();
     },
 
     atualizarListaComprovantes() {
@@ -916,7 +1300,7 @@ const App = {
 
         comprovantes.forEach((comp) => {
             const itensVinculados = ingredientes
-                .filter(i => String(i.comprovanteId) === String(comp.id));
+                .filter(i => String(i.comprovante_id) === String(comp.id));
             
             const totalItens = itensVinculados.length;
             const totalValorItens = itensVinculados.reduce((acc, item) => acc + (item.valorTotal || 0), 0);
@@ -972,7 +1356,7 @@ const App = {
         }
         
         const ingredientes = this.events[this.selectedDay].ingredientes || [];
-        const itensVinculados = ingredientes.filter(i => String(i.comprovanteId) === String(comprovante.id));
+        const itensVinculados = ingredientes.filter(i => String(i.comprovante_id) === String(comprovante.id));
         
         const win = window.open();
         win.document.write(`
@@ -1063,25 +1447,6 @@ const App = {
         `);
     },
 
-    async removerComprovante(id) {
-        if (confirm('Remover este comprovante? Os itens vinculados serão desvinculados.')) {
-            if (this.events[this.selectedDay].ingredientes) {
-                this.events[this.selectedDay].ingredientes.forEach(item => {
-                    if (String(item.comprovanteId) === String(id)) {
-                        item.comprovanteId = null;
-                    }
-                });
-            }
-            
-            this.events[this.selectedDay].comprovantes = this.events[this.selectedDay].comprovantes.filter(c => String(c.id) !== String(id));
-            
-            this.atualizarListaIngredientes();
-            this.atualizarListaComprovantes();
-            this.atualizarSelectComprovantes();
-            await this.salvarDados();
-        }
-    },
-
     // ========== VENDAS ==========
     mostrarFormVenda() {
         this.atualizarSelectProdutos();
@@ -1135,68 +1500,127 @@ const App = {
         const entrega = document.getElementById('vendaEntrega').value;
         const observacoes = document.getElementById('vendaObs').value;
 
-        if (!cliente) {
-            alert('Digite o nome do cliente!');
+        if (!cliente || !produtoId || quantidade <= 0) {
+            alert('Preencha todos os campos corretamente!');
             return;
         }
 
-        if (!produtoId) {
-            alert('Selecione um produto!');
-            return;
-        }
+        try {
+            this.mostrarLoading();
+            
+            const eventoId = await this.getOrCreateEventoId(this.selectedDay);
+            if (!eventoId) throw new Error('Erro ao obter evento');
 
-        const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
-        if (!produto) {
-            alert('Produto não encontrado!');
-            return;
-        }
+            const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+            
+            const vendaData = {
+                evento_id: eventoId,
+                cliente: cliente,
+                produtoId: produtoId,
+                produtoNome: produto.nome,
+                quantidade: quantidade,
+                valorUnit: valorUnit,
+                valorPago: valorPago,
+                formaPagamento: formaPagamento,
+                entrega: entrega,
+                observacoes: observacoes,
+                data: new Date().toISOString()
+            };
 
-        const disponivel = produto.quantidade - (produto.vendido || 0);
-        if (quantidade > disponivel) {
-            alert(`Quantidade indisponível! Disponível: ${disponivel}`);
-            return;
-        }
-
-        if (quantidade <= 0) {
-            alert('Digite a quantidade!');
-            return;
-        }
-
-        if (!this.events[this.selectedDay].vendas) {
-            this.events[this.selectedDay].vendas = [];
-        }
-
-        const venda = {
-            id: this.vendaEditando || Date.now(),
-            cliente,
-            produtoId,
-            produtoNome: produto.nome,
-            quantidade,
-            valorUnit,
-            valorPago,
-            formaPagamento,
-            entrega,
-            observacoes,
-            data: new Date().toISOString()
-        };
-
-        if (this.vendaEditando) {
-            const index = this.events[this.selectedDay].vendas.findIndex(v => String(v.id) === String(this.vendaEditando));
-            if (index !== -1) {
-                this.events[this.selectedDay].vendas[index] = venda;
+            if (this.vendaEditando) {
+                // Atualizar
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?id=eq.${this.vendaEditando}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify(vendaData)
+                });
+            } else {
+                // Criar nova venda
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(vendaData)
+                });
+                
+                // Atualizar quantidade vendida no produto
+                const novoVendido = (produto.vendido || 0) + quantidade;
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${produtoId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ vendido: novoVendido })
+                });
             }
-        } else {
-            this.events[this.selectedDay].vendas.push(venda);
-            produto.vendido = (produto.vendido || 0) + quantidade;
-        }
 
-        this.cancelarFormVenda();
-        this.atualizarListaProducao();
-        this.atualizarListaVendas();
-        this.atualizarResumoEvento();
-        this.atualizarSelectProdutos();
-        this.atualizarTotaisGerais();
-        await this.salvarDados();
+            // Recarregar dados
+            await this.carregarEventos();
+            
+            this.cancelarFormVenda();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao salvar venda:', error);
+            alert('Erro ao salvar no banco de dados');
+        } finally {
+            this.esconderLoading();
+        }
+    },
+
+    async removerVenda(id) {
+        if (!confirm('Remover esta venda?')) return;
+
+        try {
+            this.mostrarLoading();
+            
+            const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+            
+            // Atualizar produto
+            if (venda) {
+                const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(venda.produtoId));
+                if (produto) {
+                    const novoVendido = (produto.vendido || 0) - venda.quantidade;
+                    await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${venda.produtoId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ vendido: novoVendido })
+                    });
+                }
+            }
+            
+            // Remover venda
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            });
+            
+            await this.carregarEventos();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao remover venda:', error);
+            alert('Erro ao remover venda!');
+        } finally {
+            this.esconderLoading();
+        }
     },
 
     atualizarListaVendas() {
@@ -1272,25 +1696,44 @@ const App = {
             return;
         }
 
-        const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(this.pagamentoVendaId));
-        if (!venda) return;
-        
-        const total = venda.quantidade * venda.valorUnit;
-        const novoPago = (venda.valorPago || 0) + valor;
+        try {
+            this.mostrarLoading();
+            
+            const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(this.pagamentoVendaId));
+            if (!venda) return;
+            
+            const total = venda.quantidade * venda.valorUnit;
+            const novoPago = (venda.valorPago || 0) + valor;
 
-        if (novoPago > total) {
-            alert('Valor maior que o total!');
-            return;
+            if (novoPago > total) {
+                alert('Valor maior que o total!');
+                return;
+            }
+
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?id=eq.${this.pagamentoVendaId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({ 
+                    valorPago: novoPago,
+                    formaPagamento: forma 
+                })
+            });
+
+            await this.carregarEventos();
+            
+            this.cancelarPagamento();
+            this.carregarDadosEvento();
+            
+        } catch (error) {
+            console.error('Erro ao registrar pagamento:', error);
+            alert('Erro ao registrar pagamento!');
+        } finally {
+            this.esconderLoading();
         }
-
-        venda.valorPago = novoPago;
-        venda.formaPagamento = forma;
-
-        this.cancelarPagamento();
-        this.atualizarListaVendas();
-        this.atualizarResumoEvento();
-        this.atualizarTotaisGerais();
-        await this.salvarDados();
     },
 
     editarVenda(id) {
@@ -1310,65 +1753,6 @@ const App = {
         
         this.calcularPendenteVenda();
         document.getElementById('formVenda').classList.remove('hidden');
-    },
-
-    async removerVenda(id) {
-        if (confirm('Remover esta venda?')) {
-            const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
-            if (venda) {
-                const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(venda.produtoId));
-                if (produto) {
-                    produto.vendido = (produto.vendido || 0) - venda.quantidade;
-                }
-            }
-            
-            this.events[this.selectedDay].vendas = this.events[this.selectedDay].vendas.filter(v => String(v.id) !== String(id));
-            this.atualizarListaProducao();
-            this.atualizarListaVendas();
-            this.atualizarResumoEvento();
-            this.atualizarSelectProdutos();
-            this.atualizarTotaisGerais();
-            await this.salvarDados();
-        }
-    },
-
-    // ========== TOTAIS GERAIS ==========
-    atualizarTotaisGerais() {
-        const hoje = new Date().toISOString().split('T')[0];
-        const hojeKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
-        
-        let totalVendasHoje = 0;
-        let totalVendasGeral = 0;
-        let totalRecebidoGeral = 0;
-        let totalCustosGeral = 0;
-
-        Object.values(this.events).forEach(evento => {
-            if (evento.vendas) {
-                evento.vendas.forEach(venda => {
-                    const valorTotal = venda.quantidade * venda.valorUnit;
-                    totalVendasGeral += valorTotal;
-                    totalRecebidoGeral += venda.valorPago || 0;
-                    
-                    // Verificar se é venda de hoje
-                    if (evento.data === hojeKey) {
-                        totalVendasHoje += valorTotal;
-                    }
-                });
-            }
-            
-            if (evento.ingredientes) {
-                evento.ingredientes.forEach(ing => {
-                    if (!ing.doacao) totalCustosGeral += ing.valorTotal || 0;
-                });
-            }
-        });
-
-        const liquidoGeral = totalRecebidoGeral - totalCustosGeral;
-
-        document.getElementById('resumoVendasHoje').innerHTML = `R$ ${totalVendasHoje.toFixed(2)}`;
-        document.getElementById('resumoVendasGeral').innerHTML = `R$ ${totalVendasGeral.toFixed(2)}`;
-        document.getElementById('resumoRecebidoGeral').innerHTML = `R$ ${totalRecebidoGeral.toFixed(2)}`;
-        document.getElementById('resumoLiquido').innerHTML = `R$ ${liquidoGeral.toFixed(2)}`;
     },
 
     // ========== RELATÓRIOS ==========
@@ -1430,7 +1814,6 @@ const App = {
         document.getElementById('relAReceber').innerHTML = `R$ ${aReceber.toFixed(2)}`;
         document.getElementById('relEntregues').innerHTML = `${totalEntregues} de ${vendas.length}`;
         
-        // Novos campos de produção
         document.getElementById('relItensProduzidos').innerHTML = totalProduzido;
         document.getElementById('relItensVendidos').innerHTML = totalVendidos;
         document.getElementById('relItensRestantes').innerHTML = totalRestantes;
@@ -1449,22 +1832,32 @@ const App = {
     async excluirEvento() {
         if (!this.selectedDay) return;
         
-        if (confirm('🗑️ Excluir este evento permanentemente?')) {
-            const data = this.selectedDay;
-            delete this.events[data];
+        if (!confirm('🗑️ Excluir este evento permanentemente?')) return;
+
+        try {
+            this.mostrarLoading();
             
-            try {
-                await fetch(`${SUPABASE_URL}/rest/v1/eventos?data=eq.${data}`, {
+            const evento = this.events[this.selectedDay];
+            if (evento && evento.id) {
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.EVENTOS}?id=eq.${evento.id}`, {
                     method: 'DELETE',
-                    headers: headers
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
                 });
-            } catch (error) {
-                console.error('Erro ao remover do Supabase:', error);
             }
             
+            delete this.events[this.selectedDay];
             localStorage.setItem('cantinaEvents', JSON.stringify(this.events));
+            
             this.voltarCalendario();
-            this.atualizarTotaisGerais();
+            
+        } catch (error) {
+            console.error('Erro ao excluir evento:', error);
+            alert('Erro ao excluir evento!');
+        } finally {
+            this.esconderLoading();
         }
     },
 
