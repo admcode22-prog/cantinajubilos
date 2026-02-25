@@ -1602,30 +1602,125 @@ if (imagemInput.files && imagemInput.files[0]) {
     },
 
     async salvarVenda() {
-        if (!this.selectedDay) return;
+    if (!this.selectedDay) return;
 
-        const cliente = document.getElementById('vendaCliente').value;
-        const produtoId = document.getElementById('vendaProdutoId').value;
-        const quantidade = parseInt(document.getElementById('vendaQtd').value) || 0;
-        const valorUnit = parseFloat(document.getElementById('vendaValorUnit').value) || 0;
-        const formaPagamento = document.getElementById('vendaFormaPagamento').value;
-        const valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
-        const entrega = document.getElementById('vendaEntrega').value;
-        const observacoes = document.getElementById('vendaObs').value;
+    const cliente = document.getElementById('vendaCliente').value;
+    const produtoId = document.getElementById('vendaProdutoId').value;
+    const quantidade = parseInt(document.getElementById('vendaQtd').value) || 0;
+    const valorUnit = parseFloat(document.getElementById('vendaValorUnit').value) || 0;
+    const formaPagamento = document.getElementById('vendaFormaPagamento').value;
+    const valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
+    const entrega = document.getElementById('vendaEntrega').value;
+    const observacoes = document.getElementById('vendaObs').value;
 
-        if (!cliente || !produtoId || quantidade <= 0) {
-            alert('Preencha todos os campos corretamente!');
+    // Validações básicas
+    if (!cliente) {
+        alert('Digite o nome do cliente!');
+        return;
+    }
+
+    // Se for edição e não mudou o produto, não precisa validar disponibilidade
+    if (!this.vendaEditando) {
+        if (!produtoId || quantidade <= 0) {
+            alert('Selecione um produto e quantidade válida!');
             return;
         }
 
-        try {
-            this.mostrarLoading();
-            
-            const eventoId = await this.getOrCreateEventoId(this.selectedDay);
-            if (!eventoId) throw new Error('Erro ao obter evento');
+        const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+        const disponivel = produto.quantidade - (produto.vendido || 0);
+        
+        if (quantidade > disponivel) {
+            alert(`Quantidade indisponível! Disponível: ${disponivel}`);
+            return;
+        }
+    }
 
-            const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+    try {
+        this.mostrarLoading();
+        
+        const eventoId = await this.getOrCreateEventoId(this.selectedDay);
+        if (!eventoId) throw new Error('Erro ao obter evento');
+
+        // Se for edição, verificar se precisa atualizar o produto
+        if (this.vendaEditando) {
+            const vendaAntiga = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(this.vendaEditando));
             
+            // Preparar dados para atualização
+            const vendaData = {
+                evento_id: eventoId,
+                cliente: cliente,
+                produtoId: vendaAntiga.produtoId, // Manter o produto original se não foi alterado
+                produtoNome: vendaAntiga.produtoNome,
+                quantidade: vendaAntiga.quantidade, // Manter quantidade original
+                valorUnit: vendaAntiga.valorUnit,
+                valorPago: valorPago,
+                formaPagamento: formaPagamento,
+                entrega: entrega,
+                observacoes: observacoes,
+                data: vendaAntiga.data // Manter data original
+            };
+
+            // Se o usuário mudou o produto, usar os novos valores
+            if (produtoId && produtoId !== vendaAntiga.produtoId) {
+                const novoProduto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+                vendaData.produtoId = produtoId;
+                vendaData.produtoNome = novoProduto.nome;
+                vendaData.quantidade = quantidade;
+                vendaData.valorUnit = valorUnit;
+            }
+
+            // Atualizar apenas a venda (sem mexer no produto ainda)
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?id=eq.${this.vendaEditando}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify(vendaData)
+            });
+
+            // Se mudou o produto ou quantidade, recalcular os produtos
+            if (produtoId && (produtoId !== vendaAntiga.produtoId || quantidade !== vendaAntiga.quantidade)) {
+                // Recalcular produto antigo
+                const outrasVendasAntigo = this.events[this.selectedDay].vendas.filter(v => 
+                    String(v.id) !== String(this.vendaEditando) && 
+                    String(v.produtoId) === String(vendaAntiga.produtoId)
+                );
+                const totalVendidoAntigo = outrasVendasAntigo.reduce((acc, v) => acc + v.quantidade, 0);
+                
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${vendaAntiga.produtoId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ vendido: totalVendidoAntigo })
+                });
+
+                // Recalcular produto novo
+                const outrasVendasNovo = this.events[this.selectedDay].vendas.filter(v => 
+                    String(v.id) !== String(this.vendaEditando) && 
+                    String(v.produtoId) === String(produtoId)
+                );
+                const totalVendidoNovo = outrasVendasNovo.reduce((acc, v) => acc + v.quantidade, 0) + quantidade;
+                
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${produtoId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ vendido: totalVendidoNovo })
+                });
+            }
+            
+        } else {
+            // NOVA VENDA (código existente permanece igual)
+            const produto = this.events[this.selectedDay].producao.find(p => String(p.id) === String(produtoId));
+
             const vendaData = {
                 evento_id: eventoId,
                 cliente: cliente,
@@ -1640,56 +1735,62 @@ if (imagemInput.files && imagemInput.files[0]) {
                 data: new Date().toISOString()
             };
 
-            if (this.vendaEditando) {
-                // Atualizar
-                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?id=eq.${this.vendaEditando}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify(vendaData)
-                });
-            } else {
-                // Criar nova venda
-                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify(vendaData)
-                });
-                
-                // Atualizar quantidade vendida no produto
-                const novoVendido = (produto.vendido || 0) + quantidade;
-                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${produtoId}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ vendido: novoVendido })
-                });
+            const vendaResponse = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(vendaData)
+            });
+            
+            if (!vendaResponse.ok) {
+                throw new Error('Erro ao criar venda');
             }
-
-            // Recarregar dados
-            await this.carregarEventos();
             
-            this.cancelarFormVenda();
-            this.carregarDadosEvento();
+            // Atualizar quantidade vendida no produto
+            const todasVendas = [...(this.events[this.selectedDay].vendas || []), vendaData];
+            const vendasDoProduto = todasVendas.filter(v => String(v.produtoId) === String(produtoId));
+            const totalVendido = vendasDoProduto.reduce((acc, v) => acc + v.quantidade, 0);
             
-        } catch (error) {
-            console.error('Erro ao salvar venda:', error);
-            alert('Erro ao salvar no banco de dados');
-        } finally {
-            this.esconderLoading();
+            await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${produtoId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({ vendido: totalVendido })
+            });
         }
-    },
+
+        // Recarregar dados
+        await this.carregarEventos();
+        
+        this.cancelarFormVenda();
+        this.carregarDadosEvento();
+        
+        // Feedback visual
+        const btn = document.querySelector('.btn-success[onclick="app.salvarVenda()"], .btn-primary[onclick="app.salvarVenda()"]');
+        if (btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✅ Atualizado!';
+            btn.style.background = '#10b981';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+            }, 1500);
+        }
+        
+    } catch (error) {
+        console.error('Erro ao salvar venda:', error);
+        alert(`Erro ao salvar: ${error.message}`);
+    } finally {
+        this.esconderLoading();
+    }
+},
 
     async removerVenda(id) {
         if (!confirm('Remover esta venda?')) return;
@@ -1737,47 +1838,51 @@ if (imagemInput.files && imagemInput.files[0]) {
     },
 
     atualizarListaVendas() {
-        if (!this.selectedDay || !this.events[this.selectedDay]) return;
+    if (!this.selectedDay || !this.events[this.selectedDay]) return;
 
-        const vendas = this.events[this.selectedDay].vendas || [];
-        let html = '';
+    const vendas = this.events[this.selectedDay].vendas || [];
+    let html = '';
 
-        vendas.sort((a, b) => new Date(b.data) - new Date(a.data));
+    vendas.sort((a, b) => new Date(b.data) - new Date(a.data));
 
-        vendas.forEach((venda) => {
-            const valorTotal = venda.quantidade * venda.valorUnit;
-            const pendente = valorTotal - (venda.valorPago || 0);
+    vendas.forEach((venda) => {
+        const valorTotal = venda.quantidade * venda.valorUnit;
+        const pendente = valorTotal - (venda.valorPago || 0);
 
-            html += `
-                <div class="venda-card" data-id="${venda.id}">
-                    <div class="venda-header">
-                        <span class="cliente-nome">${venda.cliente}</span>
-                        <span class="entrega-badge ${venda.entrega}">${venda.entrega === 'sim' ? '✅ Entregue' : '⏳ Pendente'}</span>
-                    </div>
-                    
-                    <div class="venda-produto">
-                        ${venda.produtoNome} • ${venda.quantidade}x R$ ${venda.valorUnit.toFixed(2)}
-                    </div>
-                    
-                    <div class="venda-pagamento">
-                        <div>Total:<br><strong>R$ ${valorTotal.toFixed(2)}</strong></div>
-                        <div>Pago:<br><strong>R$ ${(venda.valorPago || 0).toFixed(2)}</strong></div>
-                        <div>Falta:<br><strong class="${pendente > 0 ? 'warning' : 'success'}">R$ ${pendente.toFixed(2)}</strong></div>
-                        <div>Forma:<br><strong>${venda.formaPagamento?.replace('_', ' ') || ''}</strong></div>
-                    </div>
-                    
-                    <div class="venda-actions">
-                        ${pendente > 0 ? 
-                            `<button class="btn btn-success btn-sm" style="flex: 1;" onclick="app.abrirPagamento('${venda.id}')">💰 Pagar</button>` : ''}
-                        <button class="btn btn-outline btn-sm" style="flex: 1;" onclick="app.editarVenda('${venda.id}')">✏️</button>
-                        <button class="btn btn-danger btn-sm" style="width: 40px;" onclick="app.removerVenda('${venda.id}')">🗑️</button>
-                    </div>
+        html += `
+            <div class="venda-card" data-id="${venda.id}">
+                <div class="venda-header">
+                    <span class="cliente-nome">${venda.cliente}</span>
+                    <span class="entrega-badge ${venda.entrega}">${venda.entrega === 'sim' ? '✅ Entregue' : '⏳ Pendente'}</span>
                 </div>
-            `;
-        });
+                
+                <div class="venda-produto">
+                    ${venda.produtoNome} • ${venda.quantidade}x R$ ${venda.valorUnit.toFixed(2)}
+                </div>
+                
+                <div class="venda-pagamento">
+                    <div>Total:<br><strong>R$ ${valorTotal.toFixed(2)}</strong></div>
+                    <div>Pago:<br><strong>R$ ${(venda.valorPago || 0).toFixed(2)}</strong></div>
+                    <div>Falta:<br><strong class="${pendente > 0 ? 'warning' : 'success'}">R$ ${pendente.toFixed(2)}</strong></div>
+                    <div>Forma:<br><strong>${venda.formaPagamento?.replace('_', ' ') || ''}</strong></div>
+                </div>
+                
+                <div class="venda-actions">
+                    ${pendente > 0 ? 
+                        `<button class="btn btn-success btn-sm" style="flex: 1;" onclick="app.abrirPagamento('${venda.id}')">💰 Pagar</button>` : ''}
+                    
+                    ${venda.entrega === 'nao' ? 
+                        `<button class="btn btn-success btn-sm" style="flex: 1; background: #10b981;" onclick="app.marcarEntregue('${venda.id}')">✅ Entregar</button>` : ''}
+                    
+                    <button class="btn btn-outline btn-sm" style="flex: 1;" onclick="app.editarVenda('${venda.id}')">✏️</button>
+                    <button class="btn btn-danger btn-sm" style="width: 40px;" onclick="app.removerVenda('${venda.id}')">🗑️</button>
+                </div>
+            </div>
+        `;
+    });
 
-        document.getElementById('vendasList').innerHTML = html || '<div style="text-align: center; padding: 30px; color: var(--text-light);">Nenhuma venda</div>';
-    },
+    document.getElementById('vendasList').innerHTML = html || '<div style="text-align: center; padding: 30px; color: var(--text-light);">Nenhuma venda</div>';
+},
 
     abrirPagamento(id) {
         this.pagamentoVendaId = id;
@@ -1850,23 +1955,66 @@ if (imagemInput.files && imagemInput.files[0]) {
     },
 
     editarVenda(id) {
-        this.vendaEditando = id;
+    this.vendaEditando = id;
+    const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+    if (!venda) return;
+    
+    // Preencher todos os campos com os dados da venda
+    document.getElementById('vendaCliente').value = venda.cliente || '';
+    document.getElementById('vendaProdutoId').value = venda.produtoId || '';
+    document.getElementById('vendaQtd').value = venda.quantidade || 1;
+    document.getElementById('vendaValorUnit').value = venda.valorUnit || 0;
+    document.getElementById('vendaTotal').value = (venda.quantidade * venda.valorUnit).toFixed(2);
+    document.getElementById('vendaFormaPagamento').value = venda.formaPagamento || 'dinheiro';
+    document.getElementById('vendaValorPago').value = venda.valorPago || 0;
+    document.getElementById('vendaEntrega').value = venda.entrega || 'nao';
+    document.getElementById('vendaObs').value = venda.observacoes || '';
+    
+    // Carregar dados do produto para mostrar disponível (mesmo que readonly)
+    this.carregarDadosProduto();
+    
+    // Recalcular pendente
+    this.calcularPendenteVenda();
+    
+    // Mostrar o formulário
+    document.getElementById('formVenda').classList.remove('hidden');
+    
+    // Se veio especificamente para marcar entrega, destacar o campo
+    if (venda.entrega === 'nao') {
+        document.getElementById('vendaEntrega').focus();
+    }
+},
+
+async marcarEntregue(id) {
+    if (!confirm('Marcar esta venda como entregue?')) return;
+    
+    try {
+        this.mostrarLoading();
+        
         const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
         if (!venda) return;
         
-        document.getElementById('vendaCliente').value = venda.cliente || '';
-        document.getElementById('vendaProdutoId').value = venda.produtoId || '';
-        document.getElementById('vendaQtd').value = venda.quantidade || 1;
-        document.getElementById('vendaValorUnit').value = venda.valorUnit || 0;
-        document.getElementById('vendaTotal').value = (venda.quantidade * venda.valorUnit).toFixed(2);
-        document.getElementById('vendaFormaPagamento').value = venda.formaPagamento || 'dinheiro';
-        document.getElementById('vendaValorPago').value = venda.valorPago || 0;
-        document.getElementById('vendaEntrega').value = venda.entrega || 'nao';
-        document.getElementById('vendaObs').value = venda.observacoes || '';
+        // Atualizar apenas o campo entrega
+        await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.VENDAS}?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({ entrega: 'sim' })
+        });
         
-        this.calcularPendenteVenda();
-        document.getElementById('formVenda').classList.remove('hidden');
-    },
+        await this.carregarEventos();
+        this.carregarDadosEvento();
+        
+    } catch (error) {
+        console.error('Erro ao marcar entregue:', error);
+        alert('Erro ao atualizar!');
+    } finally {
+        this.esconderLoading();
+    }
+},
 
     // ========== RELATÓRIOS ==========
     atualizarRelatorioEvento() {
