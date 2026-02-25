@@ -196,6 +196,54 @@ const App = {
     }
 },
 
+async sincronizarVendasComProducao() {
+    if (!this.selectedDay || !this.events[this.selectedDay]) return;
+    
+    try {
+        this.mostrarLoading();
+        
+        const evento = this.events[this.selectedDay];
+        const vendas = evento.vendas || [];
+        const producao = evento.producao || [];
+        
+        // Para cada produto, recalcular o total vendido com base nas vendas
+        for (const produto of producao) {
+            // Calcular quantas unidades deste produto foram vendidas
+            const totalVendido = vendas
+                .filter(v => String(v.produtoId) === String(produto.id))
+                .reduce((acc, venda) => acc + venda.quantidade, 0);
+            
+            // Se o valor no produto estiver diferente do calculado, atualizar
+            if ((produto.vendido || 0) !== totalVendido) {
+                console.log(`Sincronizando ${produto.nome}: ${produto.vendido || 0} -> ${totalVendido}`);
+                
+                // Atualizar no Supabase
+                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${produto.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ vendido: totalVendido })
+                });
+            }
+        }
+        
+        // Recarregar os dados
+        await this.carregarEventos();
+        this.carregarDadosEvento();
+        
+        alert('✅ Vendas sincronizadas com produção!');
+        
+    } catch (error) {
+        console.error('Erro ao sincronizar:', error);
+        alert('Erro ao sincronizar dados');
+    } finally {
+        this.esconderLoading();
+    }
+},
+
     async getOrCreateEventoId(data) {
     try {
         console.log('🔍 Buscando evento para data:', data);
@@ -608,17 +656,26 @@ const App = {
             const eventoId = await this.getOrCreateEventoId(this.selectedDay);
             if (!eventoId) throw new Error('Erro ao obter evento');
 
+            // Se for edição, buscar o item atual para preservar o vendido
+            let vendidoAtual = 0;
+            if (this.producaoEditando) {
+                const itemExistente = this.events[this.selectedDay]?.producao.find(p => String(p.id) === String(this.producaoEditando));
+                if (itemExistente) {
+                    vendidoAtual = itemExistente.vendido || 0;
+                }
+            }
+
             const producaoData = {
                 evento_id: eventoId,
                 nome: nome,
                 quantidade: quantidade,
                 valor: valor,
-                vendido: 0
+                vendido: vendidoAtual  // Preservar o valor atual de vendido
             };
 
             if (this.producaoEditando) {
                 // Atualizar
-                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${this.producaoEditando}`, {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}?id=eq.${this.producaoEditando}`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -627,9 +684,13 @@ const App = {
                     },
                     body: JSON.stringify(producaoData)
                 });
+
+                if (!response.ok) {
+                    throw new Error('Erro ao atualizar produção');
+                }
             } else {
-                // Criar novo
-                await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}`, {
+                // Criar novo (aqui sim, vendido começa como 0)
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLES.PRODUCAO}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -639,6 +700,10 @@ const App = {
                     },
                     body: JSON.stringify(producaoData)
                 });
+
+                if (!response.ok) {
+                    throw new Error('Erro ao criar produção');
+                }
             }
 
             // Recarregar dados
@@ -647,9 +712,21 @@ const App = {
             this.cancelarFormProducao();
             this.carregarDadosEvento();
             
+            // Feedback visual
+            const btn = document.querySelector('[onclick="app.salvarProducao()"]');
+            if (btn) {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span>✅</span> Salvo!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '';
+                }, 1500);
+            }
+            
         } catch (error) {
             console.error('Erro ao salvar produção:', error);
-            alert('Erro ao salvar no banco de dados');
+            alert(`Erro ao salvar: ${error.message}`);
         } finally {
             this.esconderLoading();
         }
@@ -693,14 +770,29 @@ const App = {
             const disponivel = item.quantidade - (item.vendido || 0);
             totalItens += disponivel;
 
+            // Calcular valor total potencial
+            const valorTotalPotencial = item.quantidade * item.valor;
+            const valorVendido = (item.vendido || 0) * item.valor;
+            const valorDisponivel = disponivel * item.valor;
+
             html += `
                 <div class="item-card" style="border-left-color: var(--success);">
                     <div class="item-info">
-                        <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             <span class="item-name">${item.nome}</span>
                             <span class="item-badge" style="background: var(--primary);">R$ ${item.valor.toFixed(2)}</span>
+                            ${disponivel > 0 ? 
+                                `<span class="item-badge" style="background: var(--warning);">${disponivel} disponível</span>` : 
+                                `<span class="item-badge" style="background: var(--danger);">Esgotado</span>`}
                         </div>
-                        <span class="item-details">Produzido: ${item.quantidade} • Vendido: ${item.vendido || 0} • Disponível: ${disponivel}</span>
+                        <span class="item-details">
+                            Produzido: ${item.quantidade} • Vendido: ${item.vendido || 0} • Disponível: ${disponivel}
+                        </span>
+                        <div style="display: flex; gap: 10px; margin-top: 4px; font-size: 0.8rem;">
+                            <span>💰 Potencial: R$ ${valorTotalPotencial.toFixed(2)}</span>
+                            <span>✅ Vendido: R$ ${valorVendido.toFixed(2)}</span>
+                            <span>📦 A vender: R$ ${valorDisponivel.toFixed(2)}</span>
+                        </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <button class="btn-icon" style="background: var(--primary);" onclick="app.mostrarFormProducao('${item.id}')" title="Editar">

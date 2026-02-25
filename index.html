@@ -128,9 +128,14 @@
                 <div class="producao-section">
                     <div class="section-header">
                         <h3>🍽️ Produção</h3>
-                        <button class="btn btn-primary btn-sm" onclick="app.mostrarFormProducao()">
-                            <span>+</span> Adicionar Prato
-                        </button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-primary btn-sm" onclick="app.mostrarFormProducao()">
+                                <span>+</span> Prato
+                            </button>
+                            <button class="btn btn-warning btn-sm" onclick="app.sincronizarVendasComProducao()" style="background: #f59e0b;">
+                                <span>🔄</span> Sinc.
+                            </button>
+                        </div>
                     </div>
                     
                     <div id="producaoList" class="compact-list"></div>
