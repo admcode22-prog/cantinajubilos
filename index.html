@@ -122,7 +122,7 @@
                 </div>
             </div>
 
-            <!-- Aba Custos -->
+            <!-- Aba Custos (mantida igual) -->
             <div id="tabCustos" class="tab-pane">
                 <!-- Seção de Produção -->
                 <div class="producao-section">
@@ -171,7 +171,7 @@
                     <div id="comprovantesList" class="compact-list"></div>
                 </div>
                 
-                <!-- Formulário Produção -->
+                <!-- Modal Produção -->
                 <div id="formProducao" class="modal-overlay hidden">
                     <div class="modal">
                         <div class="modal-header">
@@ -180,17 +180,14 @@
                         </div>
                         <div class="modal-body">
                             <input type="hidden" id="producaoEditId" value="">
-                            
                             <div class="form-group">
                                 <label>Nome do Prato</label>
                                 <input type="text" id="producaoNome" class="form-control" placeholder="Ex: Cachorro Quente">
                             </div>
-                            
                             <div class="form-group">
                                 <label>Quantidade Produzida</label>
                                 <input type="number" id="producaoQuantidade" class="form-control" placeholder="0" value="0" min="0">
                             </div>
-                            
                             <div class="form-group">
                                 <label>Valor de Venda (R$)</label>
                                 <input type="number" id="producaoValor" class="form-control" placeholder="0,00" step="0.01">
@@ -203,7 +200,7 @@
                     </div>
                 </div>
                 
-                <!-- Formulário Ingrediente -->
+                <!-- Modal Ingrediente -->
                 <div id="formIngrediente" class="modal-overlay hidden">
                     <div class="modal">
                         <div class="modal-header">
@@ -223,8 +220,6 @@
                                 </select>
                             </div>
                             <input type="number" id="ingredienteValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top: 10px;">
-                            
-                            <!-- Status do ingrediente -->
                             <div style="margin-top: 15px;">
                                 <label class="checkbox">
                                     <input type="checkbox" id="ingredienteComprado"> ✓ Já comprei
@@ -233,8 +228,6 @@
                                     <input type="checkbox" id="ingredienteDoacao"> 🎁 Doação
                                 </label>
                             </div>
-                            
-                            <!-- Seleção de comprovante -->
                             <div id="comprovanteSelectContainer" style="margin-top: 15px; display: none;">
                                 <label>Vincular a comprovante:</label>
                                 <select id="ingredienteComprovanteId" class="form-control" style="margin-top: 5px;">
@@ -249,7 +242,7 @@
                     </div>
                 </div>
                 
-                <!-- Formulário Comprovante -->
+                <!-- Modal Comprovante -->
                 <div id="formComprovante" class="modal-overlay hidden">
                     <div class="modal">
                         <div class="modal-header">
@@ -258,23 +251,18 @@
                         </div>
                         <div class="modal-body">
                             <input type="hidden" id="comprovanteEditId" value="">
-                            
                             <div class="form-group">
                                 <label>Nome do Comprovante</label>
                                 <input type="text" id="comprovanteNome" class="form-control" placeholder="Ex: Mercado Central">
                             </div>
-                            
                             <div class="form-group">
                                 <label>Data da Compra</label>
                                 <input type="date" id="comprovanteData" class="form-control">
                             </div>
-                            
                             <div class="form-group">
                                 <label>Valor Total (R$)</label>
                                 <input type="number" id="comprovanteValor" class="form-control" placeholder="0,00" step="0.01">
                             </div>
-                            
-                            <!-- Upload de imagem -->
                             <div class="form-group">
                                 <label>Imagem do Comprovante</label>
                                 <input type="file" id="comprovanteImagem" accept="image/*" class="form-control" style="padding: 8px;">
@@ -282,12 +270,9 @@
                                     <img id="previewImage" src="#" alt="Preview" style="max-width: 100%; max-height: 150px; display: none; border-radius: 8px;">
                                 </div>
                             </div>
-                            
-                            <!-- Itens vinculados -->
                             <div class="form-group">
                                 <label>Selecione os itens deste comprovante:</label>
                                 <div id="comprovanteItensList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-top: 5px;">
-                                    <!-- Itens serão listados aqui -->
                                 </div>
                             </div>
                         </div>
@@ -299,18 +284,25 @@
                 </div>
             </div>
 
-            <!-- Aba Vendas -->
+            <!-- Aba Vendas ATUALIZADA com busca e filtro -->
             <div id="tabVendas" class="tab-pane active">
-
-                <!-- Botão Nova Venda -->
                 <button class="btn btn-primary btn-block" onclick="app.mostrarFormVenda()">
                     <span>➕</span> Nova Venda
                 </button>
 
-                <!-- Lista de Vendas -->
+                <!-- Controles de busca e filtro -->
+                <div class="vendas-filters">
+                    <input type="text" id="searchCliente" class="form-control" placeholder="🔍 Buscar cliente..." style="margin-bottom: 8px;">
+                    <div class="filter-buttons">
+                        <button class="btn-filter" data-filtro="todos" onclick="app.filtrarVendas('todos')">📋 Todos</button>
+                        <button class="btn-filter" data-filtro="entrega" onclick="app.filtrarVendas('entrega')">🚚 Entrega</button>
+                        <button class="btn-filter" data-filtro="retirada" onclick="app.filtrarVendas('retirada')">🏬 Retirada</button>
+                    </div>
+                </div>
+
                 <div id="vendasList" class="vendas-list"></div>
 
-                <!-- Formulário Venda -->
+                <!-- Modal Venda -->
                 <div id="formVenda" class="modal-overlay hidden">
                     <div class="modal">
                         <div class="modal-header">
@@ -352,11 +344,11 @@
                             <div class="row" style="margin-top: 10px;">
                                 <select id="vendaFormaPagamento" class="form-control col">
                                     <option value="dinheiro">💵 Dinheiro</option>
-                                    <option value="pix">📱 Pix</option>
+                                    <option value="pix_jheni">📱 Pix</option>
                                 </select>
                                 <select id="vendaEntrega" class="form-control col">
-                                    <option value="nao">🚫 Não entregue</option>
-                                    <option value="sim">✅ Entregue</option>
+                                    <option value="nao">🏬 Retirada (Local)</option>
+                                    <option value="sim">🚚 Entrega (Delivery)</option>
                                 </select>
                             </div>
                             
@@ -380,7 +372,7 @@
                     </div>
                 </div>
 
-                <!-- Formulário Pagamento -->
+                <!-- Modal Pagamento -->
                 <div id="formPagamento" class="modal-overlay hidden">
                     <div class="modal">
                         <div class="modal-header">
@@ -395,7 +387,9 @@
                             
                             <select id="pagamentoForma" class="form-control" style="margin-top: 10px;">
                                 <option value="dinheiro">💵 Dinheiro</option>
-                                <option value="pix">📱 Pix</option>
+                                <option value="pix_veri">📱 Pix Veri</option>
+                                <option value="pix_jheni">📱 Pix Jheni</option>
+                                <option value="debito">💳 Débito</option>
                             </select>
                             
                             <input type="number" id="pagamentoValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top: 10px;">
@@ -408,7 +402,7 @@
                 </div>
             </div>
 
-            <!-- Aba Relatório do Evento -->
+            <!-- Aba Relatório -->
             <div id="tabRelatorio" class="tab-pane">
                 <div class="report-card">
                     <h3>📊 Relatório do Evento</h3>
@@ -451,8 +445,16 @@
                             <span class="report-value" id="relDinheiro">R$ 0,00</span>
                         </div>
                         <div class="report-row">
-                            <span>📱 Pix:</span>
-                            <span class="report-value" id="relPix">R$ 0,00</span>
+                            <span>📱 Pix Veri:</span>
+                            <span class="report-value" id="relPixVeri">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>📱 Pix Jheni:</span>
+                            <span class="report-value" id="relPixJheni">R$ 0,00</span>
+                        </div>
+                        <div class="report-row">
+                            <span>💳 Débito:</span>
+                            <span class="report-value" id="relDebito">R$ 0,00</span>
                         </div>
                     </div>
 
@@ -471,7 +473,6 @@
                         </div>
                     </div>
                     
-                    <!-- Resumo de Custos com Comprovantes -->
                     <div class="report-section">
                         <h4>💰 Custos</h4>
                         <div class="report-row">
