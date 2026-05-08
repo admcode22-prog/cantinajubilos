@@ -926,23 +926,22 @@ const App = {
         finally { this.esconderLoading(); }
     },
     editarVenda(id) {
-        this.vendaEditando = id;
-        const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
-        if (!venda) return;
-        document.getElementById('vendaCliente').value = venda.cliente || '';
-        document.getElementById('vendaProdutoId').value = venda.produtoId || '';
-        document.getElementById('vendaQtd').value = venda.quantidade || 1;
-        document.getElementById('vendaValorUnit').value = venda.valorUnit || 0;
-        document.getElementById('vendaTotal').value = (venda.quantidade * venda.valorUnit).toFixed(2);
-        document.getElementById('vendaFormaPagamento').value = venda.formaPagamento || 'dinheiro';
-        document.getElementById('vendaValorPago').value = venda.valorPago || 0;
-        document.getElementById('vendaEntrega').value = venda.entrega || 'nao';
-        document.getElementById('vendaObs').value = venda.observacoes || '';
-        this.carregarDadosProduto();
-        this.calcularPendenteVenda();
-        document.getElementById('formVenda').classList.remove('hidden');
-        if (venda.entrega === 'nao') document.getElementById('vendaEntrega').focus();
-    },
+    this.vendaEditando = id;
+    const venda = this.events[this.selectedDay].vendas.find(v => String(v.id) === String(id));
+    if (!venda) return;
+    document.getElementById('vendaCliente').value = venda.cliente || '';
+    document.getElementById('vendaProdutoId').value = venda.produtoId || '';
+    document.getElementById('vendaQtd').value = venda.quantidade || 1;
+    document.getElementById('vendaValorUnit').value = venda.valorUnit || 0;
+    document.getElementById('vendaTotal').value = (venda.quantidade * venda.valorUnit).toFixed(2);
+    document.getElementById('vendaTipoPedido').value = venda.tipo_pedido || 'retirada';
+    document.getElementById('vendaFormaPagamento').value = venda.formaPagamento || 'dinheiro';
+    document.getElementById('vendaValorPago').value = venda.valorPago || 0;
+    document.getElementById('vendaObs').value = venda.observacoes || '';
+    this.carregarDadosProduto();
+    this.calcularPendenteVenda();
+    document.getElementById('formVenda').classList.remove('hidden');
+},
     async marcarEntregue(id) {
         if (!confirm('Marcar esta venda como entregue?')) return;
         try {
