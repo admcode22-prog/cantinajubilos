@@ -29,7 +29,6 @@
                     <h2 id="monthYear" class="month-title">Janeiro 2026</h2>
                     <button class="icon-btn" onclick="app.proximoMes()">→</button>
                 </div>
-                
                 <button class="btn btn-primary" onclick="app.novaCantinaHoje()">
                     <span>➕</span> Nova Cantina
                 </button>
@@ -38,7 +37,6 @@
             <div class="calendar-weekdays">
                 <span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span>
             </div>
-
             <div class="calendar-grid" id="calendarDays"></div>
         </div>
 
@@ -55,349 +53,116 @@
                         <div class="event-date" id="selectedDate"></div>
                         <div class="event-title" id="selectedEventName"></div>
                     </div>
-                    <button class="btn-delete-event" onclick="app.excluirEvento()" title="Excluir evento">
-                        🗑️
-                    </button>
+                    <button class="btn-delete-event" onclick="app.excluirEvento()" title="Excluir evento">🗑️</button>
                 </div>
                 <div class="event-responsible" id="selectedResponsible"></div>
             </div>
 
-            <!-- Mini Resumo do Evento -->
+            <!-- Mini Resumo -->
             <div class="mini-summary" id="eventoResumo">
-                <div class="stat-mini">
-                    <span class="stat-mini-label">Custos</span>
-                    <span class="stat-mini-value" id="resumoEventoCusto">R$ 0</span>
-                </div>
-                <div class="stat-mini">
-                    <span class="stat-mini-label">Vendas</span>
-                    <span class="stat-mini-value" id="resumoEventoVendas">R$ 0</span>
-                </div>
-                <div class="stat-mini">
-                    <span class="stat-mini-label">Lucro</span>
-                    <span class="stat-mini-value profit" id="resumoEventoLucro">R$ 0</span>
-                </div>
-                <div class="stat-mini">
-                    <span class="stat-mini-label">A Receber</span>
-                    <span class="stat-mini-value warning" id="resumoEventoAReceber">R$ 0</span>
-                </div>
+                <div class="stat-mini"><span class="stat-mini-label">Custos</span><span class="stat-mini-value" id="resumoEventoCusto">R$ 0</span></div>
+                <div class="stat-mini"><span class="stat-mini-label">Vendas</span><span class="stat-mini-value" id="resumoEventoVendas">R$ 0</span></div>
+                <div class="stat-mini"><span class="stat-mini-label">Lucro</span><span class="stat-mini-value profit" id="resumoEventoLucro">R$ 0</span></div>
+                <div class="stat-mini"><span class="stat-mini-label">A Receber</span><span class="stat-mini-value warning" id="resumoEventoAReceber">R$ 0</span></div>
             </div>
 
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab-btn" onclick="app.mudarAba('evento')">
-                    <span>📋</span> Evento
-                </button>
-                <button class="tab-btn" onclick="app.mudarAba('custos')">
-                    <span>💰</span> Custos
-                </button>
-                <button class="tab-btn active" onclick="app.mudarAba('vendas')">
-                    <span>💵</span> Vendas
-                </button>
-                <button class="tab-btn" onclick="app.mudarAba('relatorio')">
-                    <span>📊</span> Relatório
-                </button>
+                <button class="tab-btn" onclick="app.mudarAba('evento')"><span>📋</span> Evento</button>
+                <button class="tab-btn" onclick="app.mudarAba('custos')"><span>💰</span> Custos</button>
+                <button class="tab-btn active" onclick="app.mudarAba('vendas')"><span>💵</span> Vendas</button>
+                <button class="tab-btn" onclick="app.mudarAba('relatorio')"><span>📊</span> Relatório</button>
             </div>
 
             <!-- Aba Evento -->
             <div id="tabEvento" class="tab-pane">
                 <div class="form-card">
-                    <div class="form-group">
-                        <label>📋 Nome do Evento</label>
-                        <input type="text" id="eventName" class="form-control" placeholder="Ex: Cantina do Jantar">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>👥 Responsável</label>
-                        <input type="text" id="responsible" class="form-control" placeholder="Quem está organizando?">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>📝 Observações</label>
-                        <textarea id="notes" class="form-control" rows="2" placeholder="Observações..."></textarea>
-                    </div>
-                    
-                    <button class="btn btn-primary" onclick="app.salvarEvento()">
-                        <span>💾</span> Salvar Informações
-                    </button>
+                    <div class="form-group"><label>📋 Nome do Evento</label><input type="text" id="eventName" class="form-control" placeholder="Ex: Cantina do Jantar"></div>
+                    <div class="form-group"><label>👥 Responsável</label><input type="text" id="responsible" class="form-control" placeholder="Quem está organizando?"></div>
+                    <div class="form-group"><label>📝 Observações</label><textarea id="notes" class="form-control" rows="2" placeholder="Observações..."></textarea></div>
+                    <button class="btn btn-primary" onclick="app.salvarEvento()"><span>💾</span> Salvar Informações</button>
                 </div>
             </div>
 
             <!-- Aba Custos (mantida igual) -->
             <div id="tabCustos" class="tab-pane">
-                <!-- Seção de Produção -->
                 <div class="producao-section">
-                    <div class="section-header">
-                        <h3>🍽️ Produção</h3>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-primary btn-sm" onclick="app.mostrarFormProducao()">
-                                <span>+</span> Prato
-                            </button>
-                            <button class="btn btn-warning btn-sm" onclick="app.sincronizarVendasComProducao()" style="background: #f59e0b;">
-                                <span>🔄</span> Sinc.
-                            </button>
-                        </div>
-                    </div>
-                    
+                    <div class="section-header"><h3>🍽️ Produção</h3><div style="display: flex; gap: 8px;"><button class="btn btn-primary btn-sm" onclick="app.mostrarFormProducao()"><span>+</span> Prato</button><button class="btn btn-warning btn-sm" onclick="app.sincronizarVendasComProducao()" style="background: #f59e0b;"><span>🔄</span> Sinc.</button></div></div>
                     <div id="producaoList" class="compact-list"></div>
-                    
-                    <!-- Resumo da Produção -->
-                    <div class="summary-card" style="margin: 16px 0; background: var(--primary);">
-                        <div class="summary-row">
-                            <span>📦 Total de Itens para Venda:</span>
-                            <span class="summary-value" id="totalItensProducao">0</span>
-                        </div>
-                    </div>
+                    <div class="summary-card" style="margin: 16px 0; background: var(--primary);"><div class="summary-row"><span>📦 Total de Itens para Venda:</span><span class="summary-value" id="totalItensProducao">0</span></div></div>
                 </div>
-
-                <div class="section-header" style="margin-top: 20px;">
-                    <h3>🛒 Ingredientes</h3>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-primary btn-sm" onclick="app.mostrarFormIngrediente()">
-                            <span>+</span>
-                        </button>
-                        <button class="btn btn-success btn-sm" onclick="app.mostrarFormComprovante()">
-                            <span>📎</span>
-                        </button>
-                    </div>
-                </div>
-                
+                <div class="section-header" style="margin-top: 20px;"><h3>🛒 Ingredientes</h3><div style="display: flex; gap: 8px;"><button class="btn btn-primary btn-sm" onclick="app.mostrarFormIngrediente()"><span>+</span></button><button class="btn btn-success btn-sm" onclick="app.mostrarFormComprovante()"><span>📎</span></button></div></div>
                 <div id="ingredientesList" class="compact-list"></div>
-                
-                <!-- Lista de Comprovantes -->
-                <div id="comprovantesSection" style="margin-top: 20px;">
-                    <div class="section-header">
-                        <h4>📎 Comprovantes</h4>
-                    </div>
-                    <div id="comprovantesList" class="compact-list"></div>
-                </div>
-                
-                <!-- Modal Produção -->
-                <div id="formProducao" class="modal-overlay hidden">
-                    <div class="modal">
-                        <div class="modal-header">
-                            <h3>➕ Adicionar Prato</h3>
-                            <button class="close-btn" onclick="app.cancelarFormProducao()">✕</button>
-                        </div>
-                        <div class="modal-body">
-                            <input type="hidden" id="producaoEditId" value="">
-                            <div class="form-group">
-                                <label>Nome do Prato</label>
-                                <input type="text" id="producaoNome" class="form-control" placeholder="Ex: Cachorro Quente">
-                            </div>
-                            <div class="form-group">
-                                <label>Quantidade Produzida</label>
-                                <input type="number" id="producaoQuantidade" class="form-control" placeholder="0" value="0" min="0">
-                            </div>
-                            <div class="form-group">
-                                <label>Valor de Venda (R$)</label>
-                                <input type="number" id="producaoValor" class="form-control" placeholder="0,00" step="0.01">
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-outline" onclick="app.cancelarFormProducao()">Cancelar</button>
-                            <button class="btn btn-primary" onclick="app.salvarProducao()">Salvar</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Modal Ingrediente -->
-                <div id="formIngrediente" class="modal-overlay hidden">
-                    <div class="modal">
-                        <div class="modal-header">
-                            <h3 id="ingredienteModalTitle">➕ Ingrediente</h3>
-                            <button class="close-btn" onclick="app.cancelarFormIngrediente()">✕</button>
-                        </div>
-                        <div class="modal-body">
-                            <input type="hidden" id="ingredienteEditId" value="">
-                            <input type="text" id="ingredienteNome" class="form-control" placeholder="Nome">
-                            <div class="row" style="margin-top: 10px;">
-                                <input type="number" id="ingredienteQtd" class="form-control col" placeholder="Qtd">
-                                <select id="ingredienteUnidade" class="form-control col">
-                                    <option value="un">un</option>
-                                    <option value="kg">kg</option>
-                                    <option value="g">g</option>
-                                    <option value="l">L</option>
-                                </select>
-                            </div>
-                            <input type="number" id="ingredienteValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top: 10px;">
-                            <div style="margin-top: 15px;">
-                                <label class="checkbox">
-                                    <input type="checkbox" id="ingredienteComprado"> ✓ Já comprei
-                                </label>
-                                <label class="checkbox" style="margin-top: 5px;">
-                                    <input type="checkbox" id="ingredienteDoacao"> 🎁 Doação
-                                </label>
-                            </div>
-                            <div id="comprovanteSelectContainer" style="margin-top: 15px; display: none;">
-                                <label>Vincular a comprovante:</label>
-                                <select id="ingredienteComprovanteId" class="form-control" style="margin-top: 5px;">
-                                    <option value="">Nenhum</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-outline" onclick="app.cancelarFormIngrediente()">Cancelar</button>
-                            <button class="btn btn-primary" onclick="app.salvarIngrediente()">Salvar</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Modal Comprovante -->
-                <div id="formComprovante" class="modal-overlay hidden">
-                    <div class="modal">
-                        <div class="modal-header">
-                            <h3>📎 Anexar Comprovante</h3>
-                            <button class="close-btn" onclick="app.cancelarFormComprovante()">✕</button>
-                        </div>
-                        <div class="modal-body">
-                            <input type="hidden" id="comprovanteEditId" value="">
-                            <div class="form-group">
-                                <label>Nome do Comprovante</label>
-                                <input type="text" id="comprovanteNome" class="form-control" placeholder="Ex: Mercado Central">
-                            </div>
-                            <div class="form-group">
-                                <label>Data da Compra</label>
-                                <input type="date" id="comprovanteData" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>Valor Total (R$)</label>
-                                <input type="number" id="comprovanteValor" class="form-control" placeholder="0,00" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label>Imagem do Comprovante</label>
-                                <input type="file" id="comprovanteImagem" accept="image/*" class="form-control" style="padding: 8px;">
-                                <div id="comprovantePreview" style="margin-top: 10px; text-align: center;">
-                                    <img id="previewImage" src="#" alt="Preview" style="max-width: 100%; max-height: 150px; display: none; border-radius: 8px;">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Selecione os itens deste comprovante:</label>
-                                <div id="comprovanteItensList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-top: 5px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-outline" onclick="app.cancelarFormComprovante()">Cancelar</button>
-                            <button class="btn btn-primary" onclick="app.salvarComprovante()">Salvar</button>
-                        </div>
-                    </div>
-                </div>
+                <div id="comprovantesSection" style="margin-top: 20px;"><div class="section-header"><h4>📎 Comprovantes</h4></div><div id="comprovantesList" class="compact-list"></div></div>
+
+                <!-- Modais (Produção, Ingrediente, Comprovante) mantidos iguais -->
+                <div id="formProducao" class="modal-overlay hidden"><div class="modal"><div class="modal-header"><h3>➕ Adicionar Prato</h3><button class="close-btn" onclick="app.cancelarFormProducao()">✕</button></div><div class="modal-body"><input type="hidden" id="producaoEditId"><div class="form-group"><label>Nome do Prato</label><input type="text" id="producaoNome" class="form-control" placeholder="Ex: Cachorro Quente"></div><div class="form-group"><label>Quantidade Produzida</label><input type="number" id="producaoQuantidade" class="form-control" placeholder="0" value="0" min="0"></div><div class="form-group"><label>Valor de Venda (R$)</label><input type="number" id="producaoValor" class="form-control" placeholder="0,00" step="0.01"></div></div><div class="modal-footer"><button class="btn btn-outline" onclick="app.cancelarFormProducao()">Cancelar</button><button class="btn btn-primary" onclick="app.salvarProducao()">Salvar</button></div></div></div>
+                <div id="formIngrediente" class="modal-overlay hidden"><div class="modal"><div class="modal-header"><h3 id="ingredienteModalTitle">➕ Ingrediente</h3><button class="close-btn" onclick="app.cancelarFormIngrediente()">✕</button></div><div class="modal-body"><input type="hidden" id="ingredienteEditId"><input type="text" id="ingredienteNome" class="form-control" placeholder="Nome"><div class="row" style="margin-top:10px"><input type="number" id="ingredienteQtd" class="form-control col" placeholder="Qtd"><select id="ingredienteUnidade" class="form-control col"><option value="un">un</option><option value="kg">kg</option><option value="g">g</option><option value="l">L</option></select></div><input type="number" id="ingredienteValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top:10px"><div style="margin-top:15px"><label class="checkbox"><input type="checkbox" id="ingredienteComprado"> ✓ Já comprei</label><label class="checkbox" style="margin-top:5px"><input type="checkbox" id="ingredienteDoacao"> 🎁 Doação</label></div><div id="comprovanteSelectContainer" style="margin-top:15px; display:none"><label>Vincular a comprovante:</label><select id="ingredienteComprovanteId" class="form-control" style="margin-top:5px"><option value="">Nenhum</option></select></div></div><div class="modal-footer"><button class="btn btn-outline" onclick="app.cancelarFormIngrediente()">Cancelar</button><button class="btn btn-primary" onclick="app.salvarIngrediente()">Salvar</button></div></div></div>
+                <div id="formComprovante" class="modal-overlay hidden"><div class="modal"><div class="modal-header"><h3>📎 Anexar Comprovante</h3><button class="close-btn" onclick="app.cancelarFormComprovante()">✕</button></div><div class="modal-body"><input type="hidden" id="comprovanteEditId"><div class="form-group"><label>Nome do Comprovante</label><input type="text" id="comprovanteNome" class="form-control" placeholder="Ex: Mercado Central"></div><div class="form-group"><label>Data da Compra</label><input type="date" id="comprovanteData" class="form-control"></div><div class="form-group"><label>Valor Total (R$)</label><input type="number" id="comprovanteValor" class="form-control" placeholder="0,00" step="0.01"></div><div class="form-group"><label>Imagem do Comprovante</label><input type="file" id="comprovanteImagem" accept="image/*" class="form-control" style="padding:8px"><div id="comprovantePreview" style="margin-top:10px; text-align:center"><img id="previewImage" src="#" alt="Preview" style="max-width:100%; max-height:150px; display:none; border-radius:8px"></div></div><div class="form-group"><label>Selecione os itens deste comprovante:</label><div id="comprovanteItensList" style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:8px; margin-top:5px"></div></div></div><div class="modal-footer"><button class="btn btn-outline" onclick="app.cancelarFormComprovante()">Cancelar</button><button class="btn btn-primary" onclick="app.salvarComprovante()">Salvar</button></div></div></div>
             </div>
 
-            <!-- Aba Vendas ATUALIZADA com busca e filtro -->
+            <!-- Aba Vendas ATUALIZADA com Tipo Pedido e Status Entregue -->
             <div id="tabVendas" class="tab-pane active">
-                <button class="btn btn-primary btn-block" onclick="app.mostrarFormVenda()">
-                    <span>➕</span> Nova Venda
-                </button>
+                <button class="btn btn-primary btn-block" onclick="app.mostrarFormVenda()"><span>➕</span> Nova Venda</button>
 
-                <!-- Controles de busca e filtro -->
+                <!-- Filtros -->
                 <div class="vendas-filters">
                     <input type="text" id="searchCliente" class="form-control" placeholder="🔍 Buscar cliente..." style="margin-bottom: 8px;">
                     <div class="filter-buttons">
-                        <button class="btn-filter" data-filtro="todos" onclick="app.filtrarVendas('todos')">📋 Todos</button>
-                        <button class="btn-filter" data-filtro="entrega" onclick="app.filtrarVendas('entrega')">🚚 Entrega</button>
-                        <button class="btn-filter" data-filtro="retirada" onclick="app.filtrarVendas('retirada')">🏬 Retirada</button>
+                        <button class="btn-filter" data-filtro="todos" onclick="app.filtrarPorTipo('todos')">📋 Todos</button>
+                        <button class="btn-filter" data-filtro="entrega" onclick="app.filtrarPorTipo('entrega')">🚚 Entrega</button>
+                        <button class="btn-filter" data-filtro="retirada" onclick="app.filtrarPorTipo('retirada')">🏬 Retirada</button>
                     </div>
                 </div>
 
                 <div id="vendasList" class="vendas-list"></div>
 
-                <!-- Modal Venda -->
+                <!-- Modal Nova Venda / Editar -->
                 <div id="formVenda" class="modal-overlay hidden">
                     <div class="modal">
-                        <div class="modal-header">
-                            <h3>➕ Nova Venda</h3>
-                            <button class="close-btn" onclick="app.cancelarFormVenda()">✕</button>
-                        </div>
+                        <div class="modal-header"><h3>➕ Nova Venda</h3><button class="close-btn" onclick="app.cancelarFormVenda()">✕</button></div>
                         <div class="modal-body">
                             <input type="text" id="vendaCliente" class="form-control" placeholder="Cliente">
+                            <div class="form-group" style="margin-top:10px"><label>Produto</label><select id="vendaProdutoId" class="form-control"><option value="">Selecione um prato</option></select></div>
+                            <div class="row" style="margin-top:10px"><div class="col"><label style="font-size:0.8rem">Disponível</label><input type="text" id="vendaDisponivel" class="form-control" readonly></div><div class="col"><label style="font-size:0.8rem">Quantidade</label><input type="number" id="vendaQtd" class="form-control" value="1" min="1"></div></div>
+                            <div class="row" style="margin-top:10px"><div class="col"><label style="font-size:0.8rem">Valor Unit.</label><input type="number" id="vendaValorUnit" class="form-control" step="0.01" readonly></div><div class="col"><label style="font-size:0.8rem">Total</label><input type="number" id="vendaTotal" class="form-control" readonly></div></div>
                             
-                            <div class="form-group" style="margin-top: 10px;">
-                                <label>Produto</label>
-                                <select id="vendaProdutoId" class="form-control">
-                                    <option value="">Selecione um prato</option>
-                                </select>
-                            </div>
-                            
-                            <div class="row" style="margin-top: 10px;">
-                                <div class="col">
-                                    <label style="font-size: 0.8rem;">Disponível</label>
-                                    <input type="text" id="vendaDisponivel" class="form-control" readonly>
+                            <!-- NOVO: Tipo do pedido (Entrega ou Retirada) -->
+                            <div class="row" style="margin-top:10px">
+                                <div class="col"><label style="font-size:0.8rem">Tipo do pedido</label>
+                                    <select id="vendaTipoPedido" class="form-control">
+                                        <option value="retirada">🏬 Retirada (Local)</option>
+                                        <option value="entrega">🚚 Entrega (Delivery)</option>
+                                    </select>
                                 </div>
-                                <div class="col">
-                                    <label style="font-size: 0.8rem;">Quantidade</label>
-                                    <input type="number" id="vendaQtd" class="form-control" value="1" min="1">
-                                </div>
-                            </div>
-                            
-                            <div class="row" style="margin-top: 10px;">
-                                <div class="col">
-                                    <label style="font-size: 0.8rem;">Valor Unit.</label>
-                                    <input type="number" id="vendaValorUnit" class="form-control" step="0.01" readonly>
-                                </div>
-                                <div class="col">
-                                    <label style="font-size: 0.8rem;">Total</label>
-                                    <input type="number" id="vendaTotal" class="form-control" readonly>
+                                <div class="col"><label style="font-size:0.8rem">Forma Pagamento</label>
+                                    <select id="vendaFormaPagamento" class="form-control">
+                                        <option value="dinheiro">💵 Dinheiro</option>
+                                        <option value="pix_jheni">📱 Pix</option>
+                                    </select>
                                 </div>
                             </div>
                             
-                            <div class="row" style="margin-top: 10px;">
-                                <select id="vendaFormaPagamento" class="form-control col">
-                                    <option value="dinheiro">💵 Dinheiro</option>
-                                    <option value="pix_jheni">📱 Pix</option>
-                                </select>
-                                <select id="vendaEntrega" class="form-control col">
-                                    <option value="nao">🏬 Retirada (Local)</option>
-                                    <option value="sim">🚚 Entrega (Delivery)</option>
-                                </select>
+                            <div class="row" style="margin-top:10px">
+                                <div class="col"><label style="font-size:0.8rem">Valor Pago</label><input type="number" id="vendaValorPago" class="form-control" step="0.01"></div>
+                                <div class="col"><label style="font-size:0.8rem">Pendente</label><input type="text" id="vendaPendente" class="form-control" readonly></div>
                             </div>
-                            
-                            <div class="row" style="margin-top: 10px;">
-                                <div class="col">
-                                    <label style="font-size: 0.8rem;">Valor Pago</label>
-                                    <input type="number" id="vendaValorPago" class="form-control" step="0.01">
-                                </div>
-                                <div class="col">
-                                    <label style="font-size: 0.8rem;">Pendente</label>
-                                    <input type="text" id="vendaPendente" class="form-control" readonly>
-                                </div>
-                            </div>
-                            
-                            <textarea id="vendaObs" class="form-control" placeholder="Obs" rows="2" style="margin-top: 10px;"></textarea>
+                            <textarea id="vendaObs" class="form-control" placeholder="Obs" rows="2" style="margin-top:10px"></textarea>
                         </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-outline" onclick="app.cancelarFormVenda()">Cancelar</button>
-                            <button class="btn btn-primary" onclick="app.salvarVenda()">Salvar</button>
-                        </div>
+                        <div class="modal-footer"><button class="btn btn-outline" onclick="app.cancelarFormVenda()">Cancelar</button><button class="btn btn-primary" onclick="app.salvarVenda()">Salvar</button></div>
                     </div>
                 </div>
 
-                <!-- Modal Pagamento -->
+                <!-- Modal Pagamento (igual) -->
                 <div id="formPagamento" class="modal-overlay hidden">
                     <div class="modal">
-                        <div class="modal-header">
-                            <h3>💰 Pagamento</h3>
-                            <button class="close-btn" onclick="app.cancelarPagamento()">✕</button>
-                        </div>
+                        <div class="modal-header"><h3>💰 Pagamento</h3><button class="close-btn" onclick="app.cancelarPagamento()">✕</button></div>
                         <div class="modal-body">
-                            <div class="info-box">
-                                <div>Cliente: <strong id="pagamentoClienteInfo"></strong></div>
-                                <div>Pendente: <strong class="warning" id="pagamentoPendenteAtual"></strong></div>
-                            </div>
-                            
-                            <select id="pagamentoForma" class="form-control" style="margin-top: 10px;">
-                                <option value="dinheiro">💵 Dinheiro</option>
-                                <option value="pix_veri">📱 Pix Veri</option>
-                                <option value="pix_jheni">📱 Pix Jheni</option>
-                                <option value="debito">💳 Débito</option>
-                            </select>
-                            
-                            <input type="number" id="pagamentoValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top: 10px;">
+                            <div class="info-box"><div>Cliente: <strong id="pagamentoClienteInfo"></strong></div><div>Pendente: <strong class="warning" id="pagamentoPendenteAtual"></strong></div></div>
+                            <select id="pagamentoForma" class="form-control" style="margin-top:10px"><option value="dinheiro">💵 Dinheiro</option><option value="pix_veri">📱 Pix Veri</option><option value="pix_jheni">📱 Pix Jheni</option><option value="debito">💳 Débito</option></select>
+                            <input type="number" id="pagamentoValor" class="form-control" placeholder="Valor R$" step="0.01" style="margin-top:10px">
                         </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-outline" onclick="app.cancelarPagamento()">Cancelar</button>
-                            <button class="btn btn-success" onclick="app.registrarPagamento()">Pagar</button>
-                        </div>
+                        <div class="modal-footer"><button class="btn btn-outline" onclick="app.cancelarPagamento()">Cancelar</button><button class="btn btn-success" onclick="app.registrarPagamento()">Pagar</button></div>
                     </div>
                 </div>
             </div>
@@ -406,118 +171,24 @@
             <div id="tabRelatorio" class="tab-pane">
                 <div class="report-card">
                     <h3>📊 Relatório do Evento</h3>
-                    
-                    <div class="report-section">
-                        <div class="report-row">
-                            <span>💰 Total de Custos:</span>
-                            <span class="report-value" id="relCustos">R$ 0,00</span>
-                        </div>
-                        <div class="report-row">
-                            <span>💵 Total de Vendas:</span>
-                            <span class="report-value" id="relVendas">R$ 0,00</span>
-                        </div>
-                        <div class="report-row highlight">
-                            <span>🎯 Lucro:</span>
-                            <span class="report-value profit" id="relLucro">R$ 0,00</span>
-                        </div>
-                    </div>
-
-                    <div class="report-section">
-                        <h4>Produção</h4>
-                        <div class="report-row">
-                            <span>🍽️ Itens Produzidos:</span>
-                            <span class="report-value" id="relItensProduzidos">0</span>
-                        </div>
-                        <div class="report-row">
-                            <span>📦 Itens Vendidos:</span>
-                            <span class="report-value" id="relItensVendidos">0</span>
-                        </div>
-                        <div class="report-row">
-                            <span>⏳ Itens Restantes:</span>
-                            <span class="report-value warning" id="relItensRestantes">0</span>
-                        </div>
-                    </div>
-
-                    <div class="report-section">
-                        <h4>Formas de Pagamento</h4>
-                        <div class="report-row">
-                            <span>💵 Dinheiro:</span>
-                            <span class="report-value" id="relDinheiro">R$ 0,00</span>
-                        </div>
-                        <div class="report-row">
-                            <span>📱 Pix Veri:</span>
-                            <span class="report-value" id="relPixVeri">R$ 0,00</span>
-                        </div>
-                        <div class="report-row">
-                            <span>📱 Pix Jheni:</span>
-                            <span class="report-value" id="relPixJheni">R$ 0,00</span>
-                        </div>
-                        <div class="report-row">
-                            <span>💳 Débito:</span>
-                            <span class="report-value" id="relDebito">R$ 0,00</span>
-                        </div>
-                    </div>
-
-                    <div class="report-section">
-                        <div class="report-row">
-                            <span>✅ Recebido:</span>
-                            <span class="report-value success" id="relRecebido">R$ 0,00</span>
-                        </div>
-                        <div class="report-row">
-                            <span>⏳ A Receber:</span>
-                            <span class="report-value warning" id="relAReceber">R$ 0,00</span>
-                        </div>
-                        <div class="report-row">
-                            <span>🚚 Entregues:</span>
-                            <span class="report-value" id="relEntregues">0</span>
-                        </div>
-                    </div>
-                    
-                    <div class="report-section">
-                        <h4>💰 Custos</h4>
-                        <div class="report-row">
-                            <span>🛒 Itens Comprados:</span>
-                            <span class="report-value" id="relItensComprados">0</span>
-                        </div>
-                        <div class="report-row">
-                            <span>📎 Comprovantes:</span>
-                            <span class="report-value" id="relTotalComprovantes">0</span>
-                        </div>
-                        <div class="report-row">
-                            <span>✅ Total Comprado:</span>
-                            <span class="report-value success" id="relTotalComprado">R$ 0,00</span>
-                        </div>
-                        <div class="report-row" id="relItensSemValor">
-                            <span>⏳ Itens sem valor:</span>
-                            <span class="report-value warning">0</span>
-                        </div>
-                    </div>
+                    <div class="report-section"><div class="report-row"><span>💰 Total de Custos:</span><span class="report-value" id="relCustos">R$ 0,00</span></div><div class="report-row"><span>💵 Total de Vendas:</span><span class="report-value" id="relVendas">R$ 0,00</span></div><div class="report-row highlight"><span>🎯 Lucro:</span><span class="report-value profit" id="relLucro">R$ 0,00</span></div></div>
+                    <div class="report-section"><h4>Produção</h4><div class="report-row"><span>🍽️ Itens Produzidos:</span><span class="report-value" id="relItensProduzidos">0</span></div><div class="report-row"><span>📦 Itens Vendidos:</span><span class="report-value" id="relItensVendidos">0</span></div><div class="report-row"><span>⏳ Itens Restantes:</span><span class="report-value warning" id="relItensRestantes">0</span></div></div>
+                    <div class="report-section"><h4>Formas de Pagamento</h4><div class="report-row"><span>💵 Dinheiro:</span><span class="report-value" id="relDinheiro">R$ 0,00</span></div><div class="report-row"><span>📱 Pix Veri:</span><span class="report-value" id="relPixVeri">R$ 0,00</span></div><div class="report-row"><span>📱 Pix Jheni:</span><span class="report-value" id="relPixJheni">R$ 0,00</span></div><div class="report-row"><span>💳 Débito:</span><span class="report-value" id="relDebito">R$ 0,00</span></div></div>
+                    <div class="report-section"><div class="report-row"><span>✅ Recebido:</span><span class="report-value success" id="relRecebido">R$ 0,00</span></div><div class="report-row"><span>⏳ A Receber:</span><span class="report-value warning" id="relAReceber">R$ 0,00</span></div><div class="report-row"><span>🚚 Entregues/Retirados:</span><span class="report-value" id="relEntregues">0</span></div></div>
+                    <div class="report-section"><h4>💰 Custos</h4><div class="report-row"><span>🛒 Itens Comprados:</span><span class="report-value" id="relItensComprados">0</span></div><div class="report-row"><span>📎 Comprovantes:</span><span class="report-value" id="relTotalComprovantes">0</span></div><div class="report-row"><span>✅ Total Comprado:</span><span class="report-value success" id="relTotalComprado">R$ 0,00</span></div><div class="report-row" id="relItensSemValor"><span>⏳ Itens sem valor:</span><span class="report-value warning">0</span></div></div>
                 </div>
             </div>
         </div>
 
         <!-- Bottom Navigation -->
         <nav class="bottom-nav">
-            <button class="nav-item active" onclick="app.mostrarCalendario()">
-                <span class="nav-icon">📅</span>
-                <span>Calendário</span>
-            </button>
-            <button class="nav-item" onclick="app.mostrarCantinaHoje()">
-                <span class="nav-icon">🍽️</span>
-                <span>Cantina</span>
-            </button>
-            <button class="nav-item" onclick="app.mostrarRelatorioGeral()">
-                <span class="nav-icon">📊</span>
-                <span>Geral</span>
-            </button>
+            <button class="nav-item active" onclick="app.mostrarCalendario()"><span class="nav-icon">📅</span><span>Calendário</span></button>
+            <button class="nav-item" onclick="app.mostrarCantinaHoje()"><span class="nav-icon">🍽️</span><span>Cantina</span></button>
+            <button class="nav-item" onclick="app.mostrarRelatorioGeral()"><span class="nav-icon">📊</span><span>Geral</span></button>
         </nav>
     </div>
 
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay hidden">
-        <div class="spinner"></div>
-    </div>
-
+    <div id="loadingOverlay" class="loading-overlay hidden"><div class="spinner"></div></div>
     <script src="script.js"></script>
 </body>
 </html>
