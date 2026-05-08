@@ -767,3 +767,35 @@ body {
 .btn-filter span {
     margin-right: 4px;
 }
+
+/* ===== NOVOS ESTILOS PARA STATUS E TIPO ===== */
+.entrega-badge.entrega {
+    background: #3b82f6;
+    color: white;
+}
+.entrega-badge.retirada {
+    background: #10b981;
+    color: white;
+}
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    margin-left: 6px;
+}
+.status-badge.entregue {
+    background: #10b981;
+    color: white;
+}
+.status-badge.pendente {
+    background: #f59e0b;
+    color: white;
+}
+.venda-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
